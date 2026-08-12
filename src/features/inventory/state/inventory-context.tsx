@@ -16,13 +16,20 @@ import {
   ProductSheetSelectionRequiredError,
   ProductSheetValidationError,
 } from '../excel/product-sheet-error';
+import { findNewProductIds } from '../lib/find-new-product-ids';
 import { validateProductQuantity } from '../lib/update-product-quantity';
+import type { Product } from '../model/product';
 import { isStorageLocation } from '../model/storage';
 import { initialInventoryState, inventoryReducer, type InventoryState } from './inventory-reducer';
 
 interface PendingWorkbook {
   arrayBuffer: ArrayBuffer;
   fileName: string;
+}
+
+interface LoadedWorkbookSnapshot {
+  fileName: string;
+  products: Product[];
 }
 
 interface InventoryContextValue extends InventoryState {
@@ -62,6 +69,8 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(inventoryReducer, initialInventoryState);
   const repositoryRef = useRef<ExcelProductRepository | null>(null);
   const pendingWorkbookRef = useRef<PendingWorkbook | null>(null);
+  const lastLoadedWorkbookRef = useRef<LoadedWorkbookSnapshot | null>(null);
+  const workbookLoadSequenceRef = useRef(0);
 
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -84,9 +93,27 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
           selectedSheetName,
         });
         const products = await repository.getProducts();
+        const previousWorkbook = lastLoadedWorkbookRef.current;
+        workbookLoadSequenceRef.current += 1;
+        const comparison = previousWorkbook
+          ? {
+              id: workbookLoadSequenceRef.current,
+              previousFileName: previousWorkbook.fileName,
+              newProductIds: findNewProductIds(previousWorkbook.products, products),
+            }
+          : undefined;
         repositoryRef.current = repository;
         pendingWorkbookRef.current = null;
-        dispatch({ type: 'workbookLoaded', fileName: pendingWorkbook.fileName, products });
+        lastLoadedWorkbookRef.current = {
+          fileName: pendingWorkbook.fileName,
+          products: products.map((product) => ({ ...product })),
+        };
+        dispatch({
+          type: 'workbookLoaded',
+          fileName: pendingWorkbook.fileName,
+          products,
+          comparison,
+        });
       } catch (error: unknown) {
         if (error instanceof ProductSheetSelectionRequiredError) {
           pendingWorkbookRef.current = pendingWorkbook;

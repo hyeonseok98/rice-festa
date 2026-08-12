@@ -19,6 +19,9 @@ export interface InventoryState {
   validationErrors: ProductSheetErrorDetail[];
   candidateSheetNames: string[];
   lastSaveMessage: string | null;
+  previousFileName: string | null;
+  newProductIds: string[];
+  comparisonId: number | null;
 }
 
 export const initialInventoryState: InventoryState = {
@@ -31,11 +34,19 @@ export const initialInventoryState: InventoryState = {
   validationErrors: [],
   candidateSheetNames: [],
   lastSaveMessage: null,
+  previousFileName: null,
+  newProductIds: [],
+  comparisonId: null,
 };
 
 type InventoryAction =
   | { type: 'workbookLoadStarted'; fileName: string }
-  | { type: 'workbookLoaded'; fileName: string; products: Product[] }
+  | {
+      type: 'workbookLoaded';
+      fileName: string;
+      products: Product[];
+      comparison?: { id: number; previousFileName: string; newProductIds: string[] };
+    }
   | { type: 'workbookSheetSelectionRequired'; fileName: string; sheetNames: string[] }
   | {
       type: 'workbookLoadFailed';
@@ -95,6 +106,9 @@ export function inventoryReducer(
         status: 'ready',
         fileName: action.fileName,
         products: action.products,
+        previousFileName: action.comparison?.previousFileName ?? null,
+        newProductIds: action.comparison?.newProductIds ?? [],
+        comparisonId: action.comparison?.id ?? null,
       };
     case 'workbookSheetSelectionRequired':
       return {

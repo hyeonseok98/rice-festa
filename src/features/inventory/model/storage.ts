@@ -19,6 +19,31 @@ export const STORAGE_LOCATIONS = [
 
 export type StorageLocation = (typeof STORAGE_LOCATIONS)[number];
 
+export const STORAGE_CATEGORIES = ['저도주', '약청주', '고도주', '냉장', '냉동', '렉'] as const;
+
+export type StorageCategory = (typeof STORAGE_CATEGORIES)[number];
+export type StorageFilter =
+  | 'all'
+  | 'unassigned'
+  | `category:${StorageCategory}`
+  | `location:${StorageLocation}`;
+
 export function isStorageLocation(value: string): value is StorageLocation {
   return STORAGE_LOCATIONS.some((location) => location === value);
+}
+
+export function isStorageCategory(value: string): value is StorageCategory {
+  return STORAGE_CATEGORIES.some((category) => category === value);
+}
+
+export function isStorageFilter(value: string): value is StorageFilter {
+  if (value === 'all' || value === 'unassigned') {
+    return true;
+  }
+
+  const [filterType, filterValue] = value.split(':');
+  return (
+    (filterType === 'category' && isStorageCategory(filterValue)) ||
+    (filterType === 'location' && isStorageLocation(filterValue))
+  );
 }

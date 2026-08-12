@@ -5,18 +5,27 @@ import type { Product } from '@/features/inventory/model/product';
 interface ProductTableProps {
   products: Product[];
   onSelectProduct: (productId: string) => void;
+  newProductIds?: ReadonlySet<string>;
+  emptyTitle?: string;
+  emptyDescription?: string;
 }
 
 function formatEthanolPercent(ethanolPercent: number | null): string {
   return ethanolPercent === null ? '-' : `${ethanolPercent}%`;
 }
 
-export function ProductTable({ products, onSelectProduct }: ProductTableProps) {
+export function ProductTable({
+  products,
+  onSelectProduct,
+  newProductIds = new Set<string>(),
+  emptyTitle = '검색 결과가 없습니다',
+  emptyDescription = '업체명이나 제품명을 다시 확인해주세요.',
+}: ProductTableProps) {
   if (products.length === 0) {
     return (
       <div className="rounded-2xl bg-surface px-6 py-18 text-center">
-        <p className="text-lg font-bold">검색 결과가 없습니다</p>
-        <p className="mt-2 text-sm text-muted-foreground">업체명이나 제품명을 다시 확인해주세요.</p>
+        <p className="text-lg font-bold">{emptyTitle}</p>
+        <p className="mt-2 text-sm text-muted-foreground">{emptyDescription}</p>
       </div>
     );
   }
@@ -47,7 +56,12 @@ export function ProductTable({ products, onSelectProduct }: ProductTableProps) {
                       className="rounded text-left font-bold text-foreground hover:text-primary hover:underline focus-visible:outline-3 focus-visible:outline-primary"
                       onClick={() => onSelectProduct(product.id)}
                     >
-                      {product.productName}
+                      <span>{product.productName}</span>
+                      {newProductIds.has(product.id) ? (
+                        <span className="ml-2 inline-flex rounded-full bg-success-soft px-2 py-0.5 text-xs font-bold text-success">
+                          신규
+                        </span>
+                      ) : null}
                     </button>
                   </th>
                   <td className="px-5 py-4 text-muted-foreground">{product.foodType}</td>
@@ -82,7 +96,14 @@ export function ProductTable({ products, onSelectProduct }: ProductTableProps) {
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="truncate text-sm text-muted-foreground">{product.companyName}</p>
-                <p className="mt-1 truncate text-lg font-extrabold">{product.productName}</p>
+                <p className="mt-1 flex items-center gap-2 truncate text-lg font-extrabold">
+                  <span className="truncate">{product.productName}</span>
+                  {newProductIds.has(product.id) ? (
+                    <span className="shrink-0 rounded-full bg-success-soft px-2 py-0.5 text-xs font-bold text-success">
+                      신규
+                    </span>
+                  ) : null}
+                </p>
               </div>
               <ChevronRight aria-hidden="true" className="mt-3 shrink-0 text-muted-foreground" />
             </div>

@@ -15,6 +15,23 @@ const product: Product = {
 };
 
 describe('inventoryReducer', () => {
+  it('직전 파일과 비교한 신규 출품작 정보를 보관한다', () => {
+    const loadedState = inventoryReducer(initialInventoryState, {
+      type: 'workbookLoaded',
+      fileName: 'current.xlsx',
+      products: [product],
+      comparison: {
+        id: 2,
+        previousFileName: 'previous.xlsx',
+        newProductIds: [product.id],
+      },
+    });
+
+    expect(loadedState.previousFileName).toBe('previous.xlsx');
+    expect(loadedState.newProductIds).toEqual([product.id]);
+    expect(loadedState.comparisonId).toBe(2);
+  });
+
   it('변경 전후 값을 추적하고 원래 값으로 돌아오면 dirty를 해제한다', () => {
     const loadedState = inventoryReducer(initialInventoryState, {
       type: 'workbookLoaded',
