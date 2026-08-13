@@ -1,7 +1,7 @@
 'use client';
 
 import { X } from 'lucide-react';
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 
 interface DrawerProps {
   isOpen: boolean;
@@ -13,6 +13,8 @@ interface DrawerProps {
 
 export function Drawer({ isOpen, title, description, children, onClose }: DrawerProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  const descriptionId = useId();
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -30,8 +32,8 @@ export function Drawer({ isOpen, title, description, children, onClose }: Drawer
   return (
     <dialog
       ref={dialogRef}
-      aria-labelledby="drawer-title"
-      aria-describedby={description ? 'drawer-description' : undefined}
+      aria-labelledby={titleId}
+      aria-describedby={description ? descriptionId : undefined}
       className="fixed inset-y-0 right-0 left-auto m-0 h-dvh max-h-none w-full max-w-120 border-0 bg-surface p-0 text-foreground shadow-2xl backdrop:bg-foreground/35 open:flex open:flex-col"
       onCancel={(event) => {
         event.preventDefault();
@@ -41,11 +43,11 @@ export function Drawer({ isOpen, title, description, children, onClose }: Drawer
     >
       <header className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
         <div>
-          <h2 id="drawer-title" className="text-xl font-bold">
+          <h2 id={titleId} className="text-xl font-bold">
             {title}
           </h2>
           {description ? (
-            <p id="drawer-description" className="mt-1 text-sm text-muted-foreground">
+            <p id={descriptionId} className="mt-1 text-sm text-muted-foreground">
               {description}
             </p>
           ) : null}

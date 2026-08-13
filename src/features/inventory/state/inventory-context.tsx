@@ -12,20 +12,12 @@ import {
 } from 'react';
 
 import { ExcelProductRepository } from '../excel/excel-product-repository';
-import {
-  ProductSheetSelectionRequiredError,
-  ProductSheetValidationError,
-} from '../excel/product-sheet-error';
+import { ProductSheetValidationError } from '../excel/product-sheet-error';
 import { findNewProductIds } from '../lib/find-new-product-ids';
 import { validateProductQuantity } from '../lib/update-product-quantity';
-import type { Product } from '../model/product';
+import type { Product, ProductQuantity } from '../model/product';
 import { isStorageLocation } from '../model/storage';
 import { initialInventoryState, inventoryReducer, type InventoryState } from './inventory-reducer';
-
-interface PendingWorkbook {
-  arrayBuffer: ArrayBuffer;
-  fileName: string;
-}
 
 interface LoadedWorkbookSnapshot {
   fileName: string;
@@ -34,9 +26,10 @@ interface LoadedWorkbookSnapshot {
 
 interface InventoryContextValue extends InventoryState {
   loadWorkbook: (file: File) => Promise<void>;
-  selectWorkbookSheet: (sheetName: string) => Promise<void>;
-  updateQuantity: (productId: string, quantity: number) => Promise<void>;
+  updateQuantity: (productId: string, quantity: ProductQuantity) => Promise<void>;
   updateLocation: (productId: string, location: string | null) => Promise<void>;
+  updateReceivedAt: (productId: string, receivedAt: string | null) => Promise<void>;
+  updateNote: (productId: string, note: string | null) => Promise<void>;
   downloadWorkbook: () => Promise<void>;
 }
 
@@ -57,7 +50,6 @@ function createDownloadFileName(fileName: string): string {
     .replace('.', '')
     .replaceAll(':', '')
     .replaceAll(' ', '-');
-
   return `${nameWithoutExtension}-변경본-${timestamp}.xlsx`;
 }
 
@@ -68,74 +60,18 @@ function getErrorMessage(error: unknown): string {
 export function InventoryProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(inventoryReducer, initialInventoryState);
   const repositoryRef = useRef<ExcelProductRepository | null>(null);
-  const pendingWorkbookRef = useRef<PendingWorkbook | null>(null);
   const lastLoadedWorkbookRef = useRef<LoadedWorkbookSnapshot | null>(null);
   const workbookLoadSequenceRef = useRef(0);
 
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (!state.isDirty) {
-        return;
-      }
-
+      if (!state.isDirty) return;
       event.preventDefault();
       event.returnValue = '';
     };
-
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [state.isDirty]);
-
-  const finishWorkbookLoad = useCallback(
-    async (pendingWorkbook: PendingWorkbook, selectedSheetName?: string) => {
-      try {
-        const repository = ExcelProductRepository.fromArrayBuffer(pendingWorkbook.arrayBuffer, {
-          selectedSheetName,
-        });
-        const products = await repository.getProducts();
-        const previousWorkbook = lastLoadedWorkbookRef.current;
-        workbookLoadSequenceRef.current += 1;
-        const comparison = previousWorkbook
-          ? {
-              id: workbookLoadSequenceRef.current,
-              previousFileName: previousWorkbook.fileName,
-              newProductIds: findNewProductIds(previousWorkbook.products, products),
-            }
-          : undefined;
-        repositoryRef.current = repository;
-        pendingWorkbookRef.current = null;
-        lastLoadedWorkbookRef.current = {
-          fileName: pendingWorkbook.fileName,
-          products: products.map((product) => ({ ...product })),
-        };
-        dispatch({
-          type: 'workbookLoaded',
-          fileName: pendingWorkbook.fileName,
-          products,
-          comparison,
-        });
-      } catch (error: unknown) {
-        if (error instanceof ProductSheetSelectionRequiredError) {
-          pendingWorkbookRef.current = pendingWorkbook;
-          dispatch({
-            type: 'workbookSheetSelectionRequired',
-            fileName: pendingWorkbook.fileName,
-            sheetNames: error.sheetNames,
-          });
-          return;
-        }
-
-        dispatch({
-          type: 'workbookLoadFailed',
-          fileName: pendingWorkbook.fileName,
-          errorMessage: getErrorMessage(error),
-          validationErrors:
-            error instanceof ProductSheetValidationError ? error.details : [],
-        });
-      }
-    },
-    [],
-  );
 
   const loadWorkbook = useCallback(
     async (file: File) => {
@@ -148,53 +84,49 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         });
         return;
       }
-
       if (state.isDirty && !window.confirm('저장하지 않은 변경사항이 있습니다. 새 파일을 불러올까요?')) {
         return;
       }
 
       dispatch({ type: 'workbookLoadStarted', fileName: file.name });
       try {
-        const pendingWorkbook = { arrayBuffer: await file.arrayBuffer(), fileName: file.name };
-        await finishWorkbookLoad(pendingWorkbook);
+        const repository = ExcelProductRepository.fromArrayBuffer(await file.arrayBuffer());
+        const products = await repository.getProducts();
+        const previousWorkbook = lastLoadedWorkbookRef.current;
+        workbookLoadSequenceRef.current += 1;
+        const comparison = previousWorkbook
+          ? {
+              id: workbookLoadSequenceRef.current,
+              previousFileName: previousWorkbook.fileName,
+              newProductIds: findNewProductIds(previousWorkbook.products, products),
+            }
+          : undefined;
+
+        repositoryRef.current = repository;
+        lastLoadedWorkbookRef.current = {
+          fileName: file.name,
+          products: products.map((product) => ({ ...product })),
+        };
+        dispatch({ type: 'workbookLoaded', fileName: file.name, products, comparison });
       } catch (error: unknown) {
         dispatch({
           type: 'workbookLoadFailed',
           fileName: file.name,
           errorMessage: getErrorMessage(error),
-          validationErrors: [],
+          validationErrors: error instanceof ProductSheetValidationError ? error.details : [],
         });
       }
     },
-    [finishWorkbookLoad, state.isDirty],
-  );
-
-  const selectWorkbookSheet = useCallback(
-    async (sheetName: string) => {
-      const pendingWorkbook = pendingWorkbookRef.current;
-      if (!pendingWorkbook) {
-        return;
-      }
-
-      dispatch({ type: 'workbookLoadStarted', fileName: pendingWorkbook.fileName });
-      await finishWorkbookLoad(pendingWorkbook, sheetName);
-    },
-    [finishWorkbookLoad],
+    [state.isDirty],
   );
 
   const updateQuantity = useCallback(
-    async (productId: string, quantity: number) => {
+    async (productId: string, quantity: ProductQuantity) => {
       const repository = repositoryRef.current;
       const product = state.products.find((item) => item.id === productId);
-      if (!repository || !product) {
-        throw new Error('수정할 출품작을 찾을 수 없습니다.');
-      }
-
-      const validatedQuantity = validateProductQuantity({ quantity });
-      if (validatedQuantity === product.quantity) {
-        return;
-      }
-
+      if (!repository || !product) throw new Error('수정할 출품작을 찾을 수 없습니다.');
+      const validatedQuantity = validateProductQuantity(quantity);
+      if (validatedQuantity === product.quantity) return;
       await repository.updateQuantity(productId, validatedQuantity);
       dispatch({
         type: 'productQuantityChanged',
@@ -210,32 +142,50 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     async (productId: string, location: string | null) => {
       const repository = repositoryRef.current;
       const product = state.products.find((item) => item.id === productId);
-      if (!repository || !product) {
-        throw new Error('수정할 출품작을 찾을 수 없습니다.');
-      }
+      if (!repository || !product) throw new Error('수정할 출품작을 찾을 수 없습니다.');
       if (location !== null && !isStorageLocation(location)) {
-        throw new Error('등록되지 않은 보관 위치입니다.');
+        throw new Error('보관위치는 저도주-1, 냉동-2처럼 입력해주세요.');
       }
-      if (location === product.location) {
-        return;
-      }
-
+      if (location === product.location) return;
       await repository.updateLocation(productId, location);
+      dispatch({ type: 'productLocationChanged', productId, before: product.location, after: location });
+    },
+    [state.products],
+  );
+
+  const updateReceivedAt = useCallback(
+    async (productId: string, receivedAt: string | null) => {
+      const repository = repositoryRef.current;
+      const product = state.products.find((item) => item.id === productId);
+      if (!repository || !product) throw new Error('수정할 출품작을 찾을 수 없습니다.');
+      if (receivedAt === product.receivedAt) return;
+      await repository.updateReceivedAt(productId, receivedAt);
       dispatch({
-        type: 'productLocationChanged',
+        type: 'productReceivedAtChanged',
         productId,
-        before: product.location,
-        after: location,
+        before: product.receivedAt,
+        after: receivedAt,
       });
+    },
+    [state.products],
+  );
+
+  const updateNote = useCallback(
+    async (productId: string, note: string | null) => {
+      const repository = repositoryRef.current;
+      const product = state.products.find((item) => item.id === productId);
+      if (!repository || !product) throw new Error('수정할 출품작을 찾을 수 없습니다.');
+      const normalizedNote = note?.trim() || null;
+      if (normalizedNote === product.note) return;
+      await repository.updateNote(productId, normalizedNote);
+      dispatch({ type: 'productNoteChanged', productId, before: product.note, after: normalizedNote });
     },
     [state.products],
   );
 
   const downloadWorkbook = useCallback(async () => {
     const repository = repositoryRef.current;
-    if (!repository || !state.fileName || !state.isDirty) {
-      return;
-    }
+    if (!repository || !state.fileName || !state.isDirty) return;
 
     dispatch({ type: 'saveStarted' });
     try {
@@ -259,18 +209,20 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     () => ({
       ...state,
       loadWorkbook,
-      selectWorkbookSheet,
       updateQuantity,
       updateLocation,
+      updateReceivedAt,
+      updateNote,
       downloadWorkbook,
     }),
     [
-      downloadWorkbook,
-      loadWorkbook,
-      selectWorkbookSheet,
       state,
-      updateLocation,
+      loadWorkbook,
       updateQuantity,
+      updateLocation,
+      updateReceivedAt,
+      updateNote,
+      downloadWorkbook,
     ],
   );
 
@@ -279,9 +231,6 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
 
 export function useInventorySession(): InventoryContextValue {
   const context = useContext(InventoryContext);
-  if (!context) {
-    throw new Error('useInventorySession은 InventoryProvider 내부에서 사용해야 합니다.');
-  }
-
+  if (!context) throw new Error('useInventorySession은 InventoryProvider 내부에서 사용해야 합니다.');
   return context;
 }

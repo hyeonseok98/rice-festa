@@ -9,14 +9,7 @@ import { Button } from '@/shared/ui/button';
 export function WorkbookLoader() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const {
-    status,
-    errorMessage,
-    validationErrors,
-    candidateSheetNames,
-    loadWorkbook,
-    selectWorkbookSheet,
-  } = useInventorySession();
+  const { status, errorMessage, validationErrors, loadWorkbook } = useInventorySession();
 
   const handleFile = async (file: File | undefined) => {
     if (file) {
@@ -60,7 +53,7 @@ export function WorkbookLoader() {
         </div>
         <p className="text-lg font-bold">.xlsx 파일을 끌어놓거나 직접 선택하세요</p>
         <p className="mt-2 text-sm text-muted-foreground">
-          첫 행의 7개 컬럼을 확인한 뒤 전체 데이터를 한 번에 검증합니다.
+          우리술과 쌀가공식품 시트의 수량·보관위치·수령일·비고를 한 번에 확인합니다.
         </p>
         <input
           ref={inputRef}
@@ -81,26 +74,6 @@ export function WorkbookLoader() {
           {status === 'loading' ? '파일 확인 중…' : 'Excel 파일 선택'}
         </Button>
       </div>
-
-      {status === 'selecting-sheet' ? (
-        <div className="mt-5 rounded-xl border border-border-strong bg-surface p-5">
-          <h2 className="font-bold">불러올 시트를 선택해주세요</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            출품작 컬럼과 일치하는 시트가 여러 개 있습니다.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {candidateSheetNames.map((sheetName) => (
-              <Button
-                key={sheetName}
-                variant="secondary"
-                onClick={() => void selectWorkbookSheet(sheetName)}
-              >
-                {sheetName}
-              </Button>
-            ))}
-          </div>
-        </div>
-      ) : null}
 
       {status === 'error' ? (
         <div className="mt-5 rounded-xl border border-danger bg-danger-soft p-5" role="alert">

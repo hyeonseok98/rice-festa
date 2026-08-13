@@ -6,6 +6,7 @@ import { filterProductsByStorage } from './filter-products-by-storage';
 function createProduct(id: string, location: Product['location']): Product {
   return {
     id,
+    division: 'traditional-liquor',
     companyName: '한강양조',
     productName: `출품작 ${id}`,
     foodType: '탁주',
@@ -13,6 +14,7 @@ function createProduct(id: string, location: Product['location']): Product {
     quantity: 10,
     location,
     receivedAt: '2026-08-01',
+    note: null,
   };
 }
 

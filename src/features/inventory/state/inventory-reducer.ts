@@ -1,10 +1,9 @@
-import type { Product, ProductChange } from '../model/product';
+import type { Product, ProductChange, ProductQuantity } from '../model/product';
 import type { ProductSheetErrorDetail } from '../excel/product-sheet-error';
 
 export type InventorySessionStatus =
   | 'idle'
   | 'loading'
-  | 'selecting-sheet'
   | 'ready'
   | 'saving'
   | 'error';
@@ -17,7 +16,6 @@ export interface InventoryState {
   changes: Record<string, ProductChange>;
   errorMessage: string | null;
   validationErrors: ProductSheetErrorDetail[];
-  candidateSheetNames: string[];
   lastSaveMessage: string | null;
   previousFileName: string | null;
   newProductIds: string[];
@@ -32,7 +30,6 @@ export const initialInventoryState: InventoryState = {
   changes: {},
   errorMessage: null,
   validationErrors: [],
-  candidateSheetNames: [],
   lastSaveMessage: null,
   previousFileName: null,
   newProductIds: [],
@@ -47,16 +44,32 @@ type InventoryAction =
       products: Product[];
       comparison?: { id: number; previousFileName: string; newProductIds: string[] };
     }
-  | { type: 'workbookSheetSelectionRequired'; fileName: string; sheetNames: string[] }
   | {
       type: 'workbookLoadFailed';
       fileName: string | null;
       errorMessage: string;
       validationErrors: ProductSheetErrorDetail[];
     }
-  | { type: 'productQuantityChanged'; productId: string; before: number; after: number }
+  | {
+      type: 'productQuantityChanged';
+      productId: string;
+      before: ProductQuantity;
+      after: ProductQuantity;
+    }
   | {
       type: 'productLocationChanged';
+      productId: string;
+      before: string | null;
+      after: string | null;
+    }
+  | {
+      type: 'productReceivedAtChanged';
+      productId: string;
+      before: string | null;
+      after: string | null;
+    }
+  | {
+      type: 'productNoteChanged';
       productId: string;
       before: string | null;
       after: string | null;
@@ -73,7 +86,7 @@ function withUpdatedChange(
   const nextChange = update(state.changes[productId] ?? { productId });
   const nextChanges = { ...state.changes };
 
-  if (!nextChange.quantity && !nextChange.location) {
+  if (!nextChange.quantity && !nextChange.location && !nextChange.receivedAt && !nextChange.note) {
     delete nextChanges[productId];
   } else {
     nextChanges[productId] = nextChange;
@@ -97,7 +110,6 @@ export function inventoryReducer(
         fileName: action.fileName,
         errorMessage: null,
         validationErrors: [],
-        candidateSheetNames: [],
         lastSaveMessage: null,
       };
     case 'workbookLoaded':
@@ -109,13 +121,6 @@ export function inventoryReducer(
         previousFileName: action.comparison?.previousFileName ?? null,
         newProductIds: action.comparison?.newProductIds ?? [],
         comparisonId: action.comparison?.id ?? null,
-      };
-    case 'workbookSheetSelectionRequired':
-      return {
-        ...initialInventoryState,
-        status: 'selecting-sheet',
-        fileName: action.fileName,
-        candidateSheetNames: action.sheetNames,
       };
     case 'workbookLoadFailed':
       return {
@@ -161,6 +166,46 @@ export function inventoryReducer(
         ...changeState,
         products: state.products.map((product) =>
           product.id === action.productId ? { ...product, location: action.after } : product,
+        ),
+        lastSaveMessage: null,
+      };
+    }
+    case 'productReceivedAtChanged': {
+      const currentChange = state.changes[action.productId];
+      const originalReceivedAt = currentChange?.receivedAt?.before ?? action.before;
+      const changeState = withUpdatedChange(state, action.productId, (change) => ({
+        ...change,
+        receivedAt:
+          action.after === originalReceivedAt
+            ? undefined
+            : { before: originalReceivedAt, after: action.after },
+      }));
+
+      return {
+        ...state,
+        ...changeState,
+        products: state.products.map((product) =>
+          product.id === action.productId ? { ...product, receivedAt: action.after } : product,
+        ),
+        lastSaveMessage: null,
+      };
+    }
+    case 'productNoteChanged': {
+      const currentChange = state.changes[action.productId];
+      const originalNote = currentChange?.note?.before ?? action.before;
+      const changeState = withUpdatedChange(state, action.productId, (change) => ({
+        ...change,
+        note:
+          action.after === originalNote
+            ? undefined
+            : { before: originalNote, after: action.after },
+      }));
+
+      return {
+        ...state,
+        ...changeState,
+        products: state.products.map((product) =>
+          product.id === action.productId ? { ...product, note: action.after } : product,
         ),
         lastSaveMessage: null,
       };

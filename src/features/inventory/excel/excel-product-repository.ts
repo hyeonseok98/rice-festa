@@ -1,98 +1,165 @@
-import {
-  SSF,
-  read,
-  utils,
-  write,
-  type CellObject,
-  type WorkBook,
-  type WorkSheet,
-} from 'xlsx';
+import { SSF, read, utils, write, type CellObject, type WorkBook, type WorkSheet } from 'xlsx';
 
-import type { Product } from '../model/product';
+import type { Product, ProductDivision, ProductQuantity } from '../model/product';
 import type { ProductRepository } from '../model/product-repository';
 import { parseProductRow, type ProductExcelRow } from './parse-product-row';
-import {
-  ProductSheetSelectionRequiredError,
-  ProductSheetValidationError,
-  type ProductSheetErrorDetail,
-} from './product-sheet-error';
+import { ProductSheetValidationError, type ProductSheetErrorDetail } from './product-sheet-error';
 
-const PRODUCT_HEADERS = [
-  '업체명',
-  '제품명',
-  '식품유형',
-  '에탄올 함량(%)',
-  '수량',
-  '위치',
-  '수령일',
-] as const;
+interface ProductSheetSchema {
+  sheetName: string;
+  division: ProductDivision;
+  headerRowNumber: number;
+  firstDataRowNumber: number;
+  columns: {
+    companyName: number;
+    productName: number;
+    foodType: number;
+    ethanolPercent: number | null;
+    quantity: number;
+    location: number;
+    receivedAt: number;
+    note: number;
+  };
+}
 
 interface ExcelProductSource {
   productId: string;
   sheetName: string;
   rowNumber: number;
+  quantityColumn: number;
+  locationColumn: number;
+  receivedAtColumn: number;
+  noteColumn: number;
 }
 
-interface CreateExcelProductRepositoryOptions {
-  selectedSheetName?: string;
-}
+const PRODUCT_SHEET_SCHEMAS: ProductSheetSchema[] = [
+  {
+    sheetName: '우리술',
+    division: 'traditional-liquor',
+    headerRowNumber: 3,
+    firstDataRowNumber: 5,
+    columns: {
+      companyName: 3,
+      productName: 9,
+      foodType: 10,
+      ethanolPercent: 11,
+      quantity: 12,
+      location: 13,
+      receivedAt: 14,
+      note: 15,
+    },
+  },
+  {
+    sheetName: '쌀가공식품',
+    division: 'rice-product',
+    headerRowNumber: 3,
+    firstDataRowNumber: 5,
+    columns: {
+      companyName: 3,
+      productName: 8,
+      foodType: 9,
+      ethanolPercent: null,
+      quantity: 10,
+      location: 11,
+      receivedAt: 12,
+      note: 13,
+    },
+  },
+];
+
+const REQUIRED_HEADER_BY_FIELD = {
+  companyName: '업체명',
+  productName: '제품명(제품라벨기준)',
+  foodType: '식품유형',
+  ethanolPercent: '에탄올함량(%)',
+  quantity: '수량',
+  location: '보관위치',
+  receivedAt: '수령일',
+  note: '비고',
+} as const;
 
 function getCellValue(worksheet: WorkSheet, columnIndex: number, rowNumber: number): unknown {
   return worksheet[utils.encode_cell({ c: columnIndex, r: rowNumber - 1 })]?.v;
 }
 
-function hasProductHeaders(worksheet: WorkSheet): boolean {
-  return PRODUCT_HEADERS.every(
-    (header, columnIndex) => getCellValue(worksheet, columnIndex, 1) === header,
-  );
+function normalizeHeader(value: unknown): string {
+  return typeof value === 'string' ? value.replaceAll(/\s/g, '') : '';
 }
 
-function findProductSheetNames(workbook: WorkBook): string[] {
-  return workbook.SheetNames.filter((sheetName) => hasProductHeaders(workbook.Sheets[sheetName]));
+function validateSheetHeaders(
+  worksheet: WorkSheet,
+  schema: ProductSheetSchema,
+): ProductSheetErrorDetail[] {
+  const errors: ProductSheetErrorDetail[] = [];
+  const fields = Object.keys(schema.columns) as Array<keyof ProductSheetSchema['columns']>;
+
+  for (const field of fields) {
+    const columnIndex = schema.columns[field];
+    if (columnIndex === null) continue;
+    const expectedHeader = REQUIRED_HEADER_BY_FIELD[field];
+    const actualValue = getCellValue(worksheet, columnIndex, schema.headerRowNumber);
+    if (normalizeHeader(actualValue) !== expectedHeader) {
+      errors.push({
+        rowNumber: schema.headerRowNumber,
+        columnName: utils.encode_col(columnIndex),
+        value: actualValue,
+        message: `"${expectedHeader}" 헤더를 찾을 수 없습니다.`,
+      });
+    }
+  }
+  return errors;
 }
 
 function normalizeExcelDate(value: unknown): unknown {
-  if (typeof value !== 'number') {
-    return value;
-  }
-
-  // Excel 날짜 일련번호는 브라우저 시간대와 무관하게 달력 날짜로 변환해야 합니다.
+  if (typeof value !== 'number') return value;
   const parsedDate = SSF.parse_date_code(value);
-  if (!parsedDate) {
-    return value;
-  }
-
+  if (!parsedDate) return value;
   return `${String(parsedDate.y).padStart(4, '0')}-${String(parsedDate.m).padStart(2, '0')}-${String(parsedDate.d).padStart(2, '0')}`;
 }
 
-function readProductExcelRow(worksheet: WorkSheet, rowNumber: number): ProductExcelRow {
+function readProductExcelRow(
+  worksheet: WorkSheet,
+  schema: ProductSheetSchema,
+  rowNumber: number,
+  companyName: string,
+): ProductExcelRow {
+  const { columns } = schema;
   return {
-    업체명: getCellValue(worksheet, 0, rowNumber),
-    제품명: getCellValue(worksheet, 1, rowNumber),
-    식품유형: getCellValue(worksheet, 2, rowNumber),
-    '에탄올 함량(%)': getCellValue(worksheet, 3, rowNumber),
-    수량: getCellValue(worksheet, 4, rowNumber),
-    위치: getCellValue(worksheet, 5, rowNumber),
-    수령일: normalizeExcelDate(getCellValue(worksheet, 6, rowNumber)),
+    companyName,
+    productName: getCellValue(worksheet, columns.productName, rowNumber),
+    foodType: getCellValue(worksheet, columns.foodType, rowNumber),
+    ethanolPercent:
+      columns.ethanolPercent === null
+        ? null
+        : getCellValue(worksheet, columns.ethanolPercent, rowNumber),
+    quantity: getCellValue(worksheet, columns.quantity, rowNumber),
+    location: getCellValue(worksheet, columns.location, rowNumber),
+    receivedAt: normalizeExcelDate(getCellValue(worksheet, columns.receivedAt, rowNumber)),
+    note: getCellValue(worksheet, columns.note, rowNumber),
   };
 }
 
-function isBlankProductRow(row: ProductExcelRow): boolean {
-  return Object.values(row).every(
-    (value) => value === null || value === undefined || (typeof value === 'string' && !value.trim()),
-  );
-}
-
 function getLastRowNumber(worksheet: WorkSheet): number {
-  if (!worksheet['!ref']) {
-    return 1;
-  }
-
-  return utils.decode_range(worksheet['!ref']).e.r + 1;
+  return worksheet['!ref'] ? utils.decode_range(worksheet['!ref']).e.r + 1 : 1;
 }
 
 function createProductId(sheetName: string, rowNumber: number): string {
   return `${encodeURIComponent(sheetName)}:${rowNumber}`;
+}
+
+function createExcelDateSerial(value: string): number {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) throw new Error('수령일은 YYYY-MM-DD 형식이어야 합니다.');
+  const [, year, month, day] = match;
+  const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+  if (
+    date.getUTCFullYear() !== Number(year) ||
+    date.getUTCMonth() !== Number(month) - 1 ||
+    date.getUTCDate() !== Number(day)
+  ) {
+    throw new Error('올바른 수령일을 입력해주세요.');
+  }
+  return (date.getTime() - Date.UTC(1899, 11, 30)) / 86_400_000;
 }
 
 export class ExcelProductRepository implements ProductRepository {
@@ -106,79 +173,71 @@ export class ExcelProductRepository implements ProductRepository {
     this.sourceByProductId = new Map(sources.map((source) => [source.productId, source]));
   }
 
-  static inspectSheetNames(arrayBuffer: ArrayBuffer): string[] {
-    const workbook = read(arrayBuffer, {
-      type: 'array',
-      cellDates: false,
-      cellStyles: true,
-    });
+  static fromArrayBuffer(arrayBuffer: ArrayBuffer): ExcelProductRepository {
+    const workbook = read(arrayBuffer, { type: 'array', cellDates: false, cellStyles: true });
+    const availableSchemas = PRODUCT_SHEET_SCHEMAS.filter(
+      (schema) => workbook.Sheets[schema.sheetName],
+    );
 
-    return findProductSheetNames(workbook);
-  }
-
-  static fromArrayBuffer(
-    arrayBuffer: ArrayBuffer,
-    options: CreateExcelProductRepositoryOptions = {},
-  ): ExcelProductRepository {
-    const workbook = read(arrayBuffer, {
-      type: 'array',
-      cellDates: false,
-      cellStyles: true,
-    });
-    const matchingSheetNames = findProductSheetNames(workbook);
-
-    if (matchingSheetNames.length === 0) {
+    if (availableSchemas.length === 0) {
       throw new ProductSheetValidationError([
         {
-          rowNumber: 1,
+          rowNumber: null,
           columnName: null,
-          value: null,
-          message: `첫 행에 ${PRODUCT_HEADERS.join(', ')} 컬럼이 있는 시트를 찾을 수 없습니다.`,
+          value: workbook.SheetNames,
+          message: '우리술 또는 쌀가공식품 시트를 찾을 수 없습니다.',
         },
       ]);
     }
 
-    if (!options.selectedSheetName && matchingSheetNames.length > 1) {
-      throw new ProductSheetSelectionRequiredError(matchingSheetNames);
-    }
-
-    const sheetName = options.selectedSheetName ?? matchingSheetNames[0];
-    if (!matchingSheetNames.includes(sheetName)) {
-      throw new ProductSheetValidationError([
-        {
-          rowNumber: 1,
-          columnName: null,
-          value: sheetName,
-          message: '선택한 시트가 출품작 양식과 일치하지 않습니다.',
-        },
-      ]);
-    }
-
-    const worksheet = workbook.Sheets[sheetName];
     const products: Product[] = [];
     const sources: ExcelProductSource[] = [];
     const errors: ProductSheetErrorDetail[] = [];
 
-    for (let rowNumber = 2; rowNumber <= getLastRowNumber(worksheet); rowNumber += 1) {
-      const row = readProductExcelRow(worksheet, rowNumber);
-      if (isBlankProductRow(row)) {
-        continue;
-      }
+    for (const schema of availableSchemas) {
+      const worksheet = workbook.Sheets[schema.sheetName];
+      const headerErrors = validateSheetHeaders(worksheet, schema);
+      errors.push(...headerErrors);
+      if (headerErrors.length > 0) continue;
 
-      const productId = createProductId(sheetName, rowNumber);
-      const result = parseProductRow({ id: productId, rowNumber, row });
-      errors.push(...result.errors);
+      let currentCompanyName = '';
+      for (
+        let rowNumber = schema.firstDataRowNumber;
+        rowNumber <= getLastRowNumber(worksheet);
+        rowNumber += 1
+      ) {
+        const companyValue = getCellValue(worksheet, schema.columns.companyName, rowNumber);
+        if (typeof companyValue === 'string' && companyValue.trim()) {
+          currentCompanyName = companyValue.trim();
+        }
 
-      if (result.product) {
+        const productName = getCellValue(worksheet, schema.columns.productName, rowNumber);
+        if (typeof productName !== 'string' || !productName.trim()) continue;
+
+        const productId = createProductId(schema.sheetName, rowNumber);
+        const result = parseProductRow({
+          id: productId,
+          division: schema.division,
+          rowNumber,
+          row: readProductExcelRow(worksheet, schema, rowNumber, currentCompanyName),
+        });
+        errors.push(...result.errors);
+        if (!result.product) continue;
+
         products.push(result.product);
-        sources.push({ productId, sheetName, rowNumber });
+        sources.push({
+          productId,
+          sheetName: schema.sheetName,
+          rowNumber,
+          quantityColumn: schema.columns.quantity,
+          locationColumn: schema.columns.location,
+          receivedAtColumn: schema.columns.receivedAt,
+          noteColumn: schema.columns.note,
+        });
       }
     }
 
-    if (errors.length > 0) {
-      throw new ProductSheetValidationError(errors);
-    }
-
+    if (errors.length > 0) throw new ProductSheetValidationError(errors);
     return new ExcelProductRepository(workbook, products, sources);
   }
 
@@ -186,48 +245,56 @@ export class ExcelProductRepository implements ProductRepository {
     return this.products.map((product) => ({ ...product }));
   }
 
-  async updateQuantity(productId: string, quantity: number): Promise<void> {
+  async updateQuantity(productId: string, quantity: ProductQuantity): Promise<void> {
     const source = this.getSource(productId);
-    this.updateCell(source, 4, { t: 'n', v: quantity });
-    this.products = this.products.map((product) =>
-      product.id === productId ? { ...product, quantity } : product,
-    );
+    const cell =
+      typeof quantity === 'number'
+        ? ({ t: 'n', v: quantity } as CellObject)
+        : ({ t: 's', v: quantity ?? '' } as CellObject);
+    this.updateCell(source, source.quantityColumn, cell);
+    this.updateProduct(productId, { quantity });
   }
 
   async updateLocation(productId: string, location: string | null): Promise<void> {
     const source = this.getSource(productId);
-    this.updateCell(source, 5, { t: 's', v: location ?? '' });
-    this.products = this.products.map((product) =>
-      product.id === productId ? { ...product, location } : product,
-    );
+    this.updateCell(source, source.locationColumn, { t: 's', v: location ?? '' });
+    this.updateProduct(productId, { location });
+  }
+
+  async updateReceivedAt(productId: string, receivedAt: string | null): Promise<void> {
+    const source = this.getSource(productId);
+    const cell = receivedAt
+      ? ({ t: 'n', v: createExcelDateSerial(receivedAt) } as CellObject)
+      : ({ t: 's', v: '' } as CellObject);
+    this.updateCell(source, source.receivedAtColumn, cell);
+    this.updateProduct(productId, { receivedAt });
+  }
+
+  async updateNote(productId: string, note: string | null): Promise<void> {
+    const source = this.getSource(productId);
+    this.updateCell(source, source.noteColumn, { t: 's', v: note ?? '' });
+    this.updateProduct(productId, { note });
   }
 
   exportArrayBuffer(): ArrayBuffer {
-    return write(this.workbook, {
-      type: 'array',
-      bookType: 'xlsx',
-      cellDates: true,
-      cellStyles: true,
-    });
+    return write(this.workbook, { type: 'array', bookType: 'xlsx', cellDates: false, cellStyles: true });
   }
 
   private getSource(productId: string): ExcelProductSource {
     const source = this.sourceByProductId.get(productId);
-    if (!source) {
-      throw new Error('Excel 원본 위치를 찾을 수 없는 출품작입니다.');
-    }
-
+    if (!source) throw new Error('Excel 원본 위치를 찾을 수 없는 출품작입니다.');
     return source;
+  }
+
+  private updateProduct(productId: string, update: Partial<Product>): void {
+    this.products = this.products.map((product) =>
+      product.id === productId ? { ...product, ...update } : product,
+    );
   }
 
   private updateCell(source: ExcelProductSource, columnIndex: number, value: CellObject): void {
     const worksheet = this.workbook.Sheets[source.sheetName];
     const address = utils.encode_cell({ c: columnIndex, r: source.rowNumber - 1 });
-
-    // 원본 Workbook을 다시 만들지 않고 수정 허용된 셀의 값만 교체합니다.
-    worksheet[address] = {
-      ...worksheet[address],
-      ...value,
-    };
+    worksheet[address] = { ...worksheet[address], ...value };
   }
 }

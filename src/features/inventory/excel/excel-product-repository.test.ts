@@ -4,80 +4,102 @@ import { read, utils, write } from 'xlsx';
 import { ExcelProductRepository } from './excel-product-repository';
 import { ProductSheetValidationError } from './product-sheet-error';
 
-const headers = [
-  '업체명',
-  '제품명',
-  '식품유형',
-  '에탄올 함량(%)',
-  '수량',
-  '위치',
-  '수령일',
-];
-
-function createWorkbookBuffer(rows: unknown[][]): ArrayBuffer {
+function createWorkbookBuffer(): ArrayBuffer {
   const workbook = utils.book_new();
-  utils.book_append_sheet(workbook, utils.aoa_to_sheet([headers, ...rows]), '출품작');
-  return write(workbook, { type: 'array', bookType: 'xlsx' });
+  const liquorRows: unknown[][] = [
+    [],
+    [null, null, '품평회 접수목록 <우리술>'],
+    [
+      null, null, '순번', '업체명', '저도주\n(9°미만)', '고도주\n(9°이상)', '약·청주',
+      '증류주', '출품수', '제품명(제품라벨 기준)', '식품유형', '에탄올 함량(%)',
+      '수량', '보관위치', '수령일', '비고',
+    ],
+    [],
+    [null, null, 1, '한강양조', 1, null, null, null, 2, '서울 생막걸리', '탁주', 0.06, 10, '저도주-4', new Date(2026, 7, 13), null],
+    [null, null, null, null, null, 1, null, null, null, '서울 막걸리 12', '탁주', 0.12, 5, null, new Date(2026, 7, 13), '추후 배치'],
+  ];
+  const riceRows: unknown[][] = [
+    [],
+    [null, null, '품평회 접수목록 <식품>'],
+    [null, null, null, '업체명', '조리', '비조리', '농협', '출품수', '제품명\n(제품라벨 기준)', '식품유형', '수량', '보관위치', '수령일', '비고'],
+    [],
+    [null, null, 1, '미곡식품', 1, null, null, 1, '우리쌀 전병', '과자', '5박스', '렉-5', new Date(2026, 7, 14), '박스 단위'],
+  ];
+  utils.book_append_sheet(workbook, utils.aoa_to_sheet(liquorRows), '우리술');
+  utils.book_append_sheet(workbook, utils.aoa_to_sheet(riceRows), '쌀가공식품');
+  utils.book_append_sheet(workbook, utils.aoa_to_sheet([['보존할 값']]), '품평회 접수목록');
+  return write(workbook, { type: 'array', bookType: 'xlsx', cellDates: true });
 }
 
 describe('ExcelProductRepository', () => {
-  it('Excel 행을 검증된 Product로 변환한다', async () => {
-    const buffer = createWorkbookBuffer([
-      ['한강양조', '서울 생막걸리', '탁주', 6, 10, '저도주-1', new Date(2026, 7, 1)],
-    ]);
+  it('두 운영 시트를 읽고 빈 업체명을 직전 업체명으로 이어받는다', async () => {
+    const repository = ExcelProductRepository.fromArrayBuffer(createWorkbookBuffer());
+    const products = await repository.getProducts();
+
+    expect(products).toHaveLength(3);
+    expect(products[0]).toMatchObject({
+      id: '%EC%9A%B0%EB%A6%AC%EC%88%A0:5',
+      division: 'traditional-liquor',
+      companyName: '한강양조',
+      productName: '서울 생막걸리',
+      ethanolPercent: 6,
+      quantity: 10,
+      location: '저도주-4',
+      receivedAt: '2026-08-13',
+      note: null,
+    });
+    expect(products[1].companyName).toBe('한강양조');
+    expect(products[2]).toMatchObject({
+      division: 'rice-product',
+      quantity: '5박스',
+      location: '렉-5',
+      note: '박스 단위',
+    });
+  });
+
+  it('퍼센트 뒤 구분 기호가 붙은 실제 입력도 읽는다', async () => {
+    const workbook = read(createWorkbookBuffer(), { type: 'array' });
+    workbook.Sheets['우리술'].L5 = { t: 's', v: '5.5%,' };
+    const buffer = write(workbook, { type: 'array', bookType: 'xlsx' });
 
     const repository = ExcelProductRepository.fromArrayBuffer(buffer);
     const products = await repository.getProducts();
 
-    expect(products).toEqual([
-      {
-        id: '%EC%B6%9C%ED%92%88%EC%9E%91:2',
-        companyName: '한강양조',
-        productName: '서울 생막걸리',
-        foodType: '탁주',
-        ethanolPercent: 6,
-        quantity: 10,
-        location: '저도주-1',
-        receivedAt: '2026-08-01',
-      },
-    ]);
+    expect(products[0]?.ethanolPercent).toBe(5.5);
   });
 
-  it('모든 행의 검증 오류를 한 번에 수집한다', () => {
-    const buffer = createWorkbookBuffer([
-      ['', '제품 A', '탁주', 101, -1, '없는-위치', '잘못된 날짜'],
-      ['업체 B', '', '약주', 12, 1.5, '약청주-1', '2026-08-01'],
-    ]);
+  it('수량·위치·수령일·비고 셀만 변경하고 다른 시트를 보존한다', async () => {
+    const repository = ExcelProductRepository.fromArrayBuffer(createWorkbookBuffer());
+    const products = await repository.getProducts();
+    const product = products[1];
 
-    expect(() => ExcelProductRepository.fromArrayBuffer(buffer)).toThrow(
-      ProductSheetValidationError,
-    );
+    await repository.updateQuantity(product.id, 7);
+    await repository.updateLocation(product.id, '고도주-5');
+    await repository.updateReceivedAt(product.id, '2026-08-14');
+    await repository.updateNote(product.id, '배치 완료');
 
+    const savedWorkbook = read(repository.exportArrayBuffer(), { type: 'array', cellDates: false });
+    const worksheet = savedWorkbook.Sheets['우리술'];
+    expect(worksheet.J6.v).toBe('서울 막걸리 12');
+    expect(worksheet.M6.v).toBe(7);
+    expect(worksheet.N6.v).toBe('고도주-5');
+    expect(worksheet.O6.v).toBe(46248);
+    expect(worksheet.P6.v).toBe('배치 완료');
+    expect(savedWorkbook.Sheets['품평회 접수목록'].A1.v).toBe('보존할 값');
+  });
+
+  it('운영 시트의 헤더가 다르면 모든 오류를 모아 안내한다', () => {
+    const workbook = read(createWorkbookBuffer(), { type: 'array' });
+    workbook.Sheets['우리술'].M3.v = '재고';
+    workbook.Sheets['쌀가공식품'].L3.v = '위치';
+    const buffer = write(workbook, { type: 'array', bookType: 'xlsx' });
+
+    expect(() => ExcelProductRepository.fromArrayBuffer(buffer)).toThrow(ProductSheetValidationError);
     try {
       ExcelProductRepository.fromArrayBuffer(buffer);
     } catch (error: unknown) {
       expect(error).toBeInstanceOf(ProductSheetValidationError);
-      if (error instanceof ProductSheetValidationError) {
-        expect(error.details).toHaveLength(7);
-        expect(error.details.map((detail) => detail.rowNumber)).toEqual([2, 2, 2, 2, 2, 3, 3]);
-      }
+      if (error instanceof ProductSheetValidationError) expect(error.details).toHaveLength(2);
     }
-  });
-
-  it('수량과 위치 셀만 변경해 다시 저장한다', async () => {
-    const buffer = createWorkbookBuffer([
-      ['한강양조', '서울 생막걸리', '탁주', 6, 10, '저도주-1', new Date(2026, 7, 1)],
-    ]);
-    const repository = ExcelProductRepository.fromArrayBuffer(buffer);
-    const [product] = await repository.getProducts();
-
-    await repository.updateQuantity(product.id, 7);
-    await repository.updateLocation(product.id, '저도주-2');
-
-    const savedWorkbook = read(repository.exportArrayBuffer(), { type: 'array' });
-    const worksheet = savedWorkbook.Sheets['출품작'];
-    expect(worksheet.A2.v).toBe('한강양조');
-    expect(worksheet.E2.v).toBe(7);
-    expect(worksheet.F2.v).toBe('저도주-2');
   });
 });

@@ -8,7 +8,13 @@ export function filterProducts(products: Product[], searchQuery: string): Produc
   }
 
   return products.filter((product) =>
-    [product.companyName, product.productName, product.foodType, product.location ?? ''].some(
+    [
+      product.companyName,
+      product.productName,
+      product.foodType,
+      product.location ?? '',
+      product.note ?? '',
+    ].some(
       (value) => value.toLocaleLowerCase('ko-KR').includes(normalizedQuery),
     ),
   );

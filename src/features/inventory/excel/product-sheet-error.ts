@@ -11,10 +11,3 @@ export class ProductSheetValidationError extends Error {
     this.name = 'ProductSheetValidationError';
   }
 }
-
-export class ProductSheetSelectionRequiredError extends Error {
-  constructor(public readonly sheetNames: string[]) {
-    super('출품작 양식과 일치하는 시트가 여러 개입니다.');
-    this.name = 'ProductSheetSelectionRequiredError';
-  }
-}

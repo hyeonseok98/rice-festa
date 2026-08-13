@@ -2,11 +2,11 @@ import type { Product } from '../model/product';
 
 function createProductIdentityKey(product: Product): string {
   return JSON.stringify([
+    product.division,
     product.companyName,
     product.productName,
     product.foodType,
     product.ethanolPercent,
-    product.receivedAt,
   ]);
 }
 

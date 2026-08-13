@@ -1,5 +1,6 @@
 import { ChevronRight, MapPin } from 'lucide-react';
 
+import { getProductReceiptStatus } from '@/features/inventory/lib/get-product-receipt-status';
 import type { Product } from '@/features/inventory/model/product';
 
 interface ProductTableProps {
@@ -12,6 +13,19 @@ interface ProductTableProps {
 
 function formatEthanolPercent(ethanolPercent: number | null): string {
   return ethanolPercent === null ? '-' : `${ethanolPercent}%`;
+}
+
+function formatQuantity(quantity: Product['quantity']): string {
+  if (quantity === null) return '-';
+  return typeof quantity === 'number' ? quantity.toLocaleString('ko-KR') : quantity;
+}
+
+function getLocationText(product: Product): string {
+  const status = getProductReceiptStatus(product);
+  if (product.location) return product.location;
+  if (status === 'unassigned') return '미배치';
+  if (status === 'not-received') return '미수령';
+  return '확인 필요';
 }
 
 export function ProductTable({
@@ -37,6 +51,7 @@ export function ProductTable({
           <table className="w-full min-w-250 border-collapse text-left text-sm">
             <thead className="bg-surface-hover text-xs font-bold text-muted-foreground">
               <tr>
+                <th scope="col" className="px-5 py-4">구분</th>
                 <th scope="col" className="px-5 py-4">업체명</th>
                 <th scope="col" className="px-5 py-4">제품명</th>
                 <th scope="col" className="px-5 py-4">식품유형</th>
@@ -49,6 +64,9 @@ export function ProductTable({
             <tbody>
               {products.map((product) => (
                 <tr key={product.id} className="border-t border-border hover:bg-surface-hover">
+                  <td className="px-5 py-4 text-xs font-bold text-muted-foreground">
+                    {product.division === 'traditional-liquor' ? '우리술' : '쌀가공'}
+                  </td>
                   <td className="px-5 py-4 text-muted-foreground">{product.companyName}</td>
                   <th scope="row" className="px-5 py-4">
                     <button
@@ -69,14 +87,14 @@ export function ProductTable({
                     {formatEthanolPercent(product.ethanolPercent)}
                   </td>
                   <td className="px-5 py-4 text-right text-base font-extrabold tabular-nums">
-                    {product.quantity.toLocaleString('ko-KR')}
+                    {formatQuantity(product.quantity)}
                   </td>
                   <td className="px-5 py-4">
-                    <span className={product.location ? 'font-semibold' : 'font-semibold text-danger'}>
-                      {product.location ?? '미지정'}
+                    <span className={product.location ? 'font-semibold' : 'font-semibold text-warning'}>
+                      {getLocationText(product)}
                     </span>
                   </td>
-                  <td className="px-5 py-4 text-muted-foreground tabular-nums">{product.receivedAt}</td>
+                  <td className="px-5 py-4 text-muted-foreground tabular-nums">{product.receivedAt ?? '-'}</td>
                 </tr>
               ))}
             </tbody>
@@ -110,11 +128,11 @@ export function ProductTable({
             <div className="mt-4 flex items-end justify-between gap-4">
               <p className={`flex items-center gap-1.5 text-sm font-semibold ${product.location ? '' : 'text-danger'}`}>
                 <MapPin aria-hidden="true" size={16} />
-                {product.location ?? '위치 미지정'}
+                {getLocationText(product)}
               </p>
               <p className="text-right">
                 <span className="text-xs text-muted-foreground">수량 </span>
-                <span className="text-xl font-extrabold tabular-nums">{product.quantity}</span>
+                <span className="text-xl font-extrabold tabular-nums">{formatQuantity(product.quantity)}</span>
               </p>
             </div>
           </button>

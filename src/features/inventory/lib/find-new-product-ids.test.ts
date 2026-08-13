@@ -6,6 +6,7 @@ import { findNewProductIds } from './find-new-product-ids';
 function createProduct(overrides: Partial<Product>): Product {
   return {
     id: 'product-1',
+    division: 'traditional-liquor',
     companyName: '한강양조',
     productName: '서울 생막걸리',
     foodType: '탁주',
@@ -13,6 +14,7 @@ function createProduct(overrides: Partial<Product>): Product {
     quantity: 10,
     location: '저도주-1',
     receivedAt: '2026-08-01',
+    note: null,
     ...overrides,
   };
 }

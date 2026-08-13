@@ -5,7 +5,7 @@ import { useMemo, useRef, useState } from 'react';
 
 import { filterProductsByStorage } from '@/features/inventory/lib/filter-products-by-storage';
 import { filterProducts } from '@/features/inventory/lib/filter-products';
-import type { StorageFilter } from '@/features/inventory/model/storage';
+import { sortStorageLocations, type StorageFilter } from '@/features/inventory/model/storage';
 import { useInventorySession } from '@/features/inventory/state/inventory-context';
 import { Button } from '@/shared/ui/button';
 
@@ -45,6 +45,13 @@ export function ProductsView() {
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const newProductIdSet = useMemo(() => new Set(newProductIds), [newProductIds]);
+  const availableLocations = useMemo(
+    () =>
+      sortStorageLocations(
+        products.flatMap((product) => (product.location ? [product.location] : [])),
+      ),
+    [products],
+  );
 
   if (status !== 'ready' && status !== 'saving') {
     return <WorkbookLoader />;
@@ -109,7 +116,7 @@ export function ProductsView() {
             <p className="font-extrabold">신규 출품작 {newProductIds.length}건을 찾았습니다</p>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
               <span className="font-semibold text-foreground">{previousFileName}</span>과 비교한 결과입니다.
-              수량과 위치 변경은 신규로 보지 않습니다.
+              수량, 수령일, 위치와 비고 변경은 신규로 보지 않습니다.
             </p>
           </div>
         ) : null}
@@ -121,7 +128,11 @@ export function ProductsView() {
               resultCount={filteredProducts.length}
               onChange={setSearchQuery}
             />
-            <ProductLocationFilter value={storageFilter} onChange={setStorageFilter} />
+            <ProductLocationFilter
+              value={storageFilter}
+              locations={availableLocations}
+              onChange={setStorageFilter}
+            />
           </div>
           <p className={`text-sm font-semibold ${isDirty ? 'text-warning' : 'text-muted-foreground'}`}>
             {isDirty ? `${changedProductCount}건의 변경사항이 저장되지 않았습니다.` : '저장할 변경사항이 없습니다.'}

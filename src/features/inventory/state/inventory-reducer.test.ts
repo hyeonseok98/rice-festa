@@ -5,6 +5,7 @@ import { initialInventoryState, inventoryReducer } from './inventory-reducer';
 
 const product: Product = {
   id: 'product-1',
+  division: 'traditional-liquor',
   companyName: '한강양조',
   productName: '서울 생막걸리',
   foodType: '탁주',
@@ -12,6 +13,7 @@ const product: Product = {
   quantity: 10,
   location: '저도주-1',
   receivedAt: '2026-08-01',
+  note: null,
 };
 
 describe('inventoryReducer', () => {

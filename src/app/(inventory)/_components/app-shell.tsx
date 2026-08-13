@@ -20,7 +20,6 @@ function getSessionStatusText(
   if (status === 'loading') return '파일 확인 중';
   if (status === 'saving') return '변경본 생성 중';
   if (status === 'error') return '파일 확인 필요';
-  if (status === 'selecting-sheet') return '시트 선택 필요';
   if (status === 'ready' && isDirty) return '저장할 변경사항 있음';
   if (status === 'ready') return '원본에서 불러옴';
   return '파일을 불러와주세요';
