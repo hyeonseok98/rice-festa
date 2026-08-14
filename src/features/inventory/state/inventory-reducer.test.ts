@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Product } from '../model/product';
+import { createDefaultStorageConfiguration } from '../model/storage-layout';
 import { initialInventoryState, inventoryReducer } from './inventory-reducer';
 
 const product: Product = {
@@ -12,6 +13,8 @@ const product: Product = {
   ethanolPercent: 6,
   quantity: 10,
   location: '저도주-1',
+  placements: [],
+  locationIssues: [],
   receivedAt: '2026-08-01',
   note: null,
 };
@@ -22,6 +25,9 @@ describe('inventoryReducer', () => {
       type: 'workbookLoaded',
       fileName: 'current.xlsx',
       products: [product],
+      storageConfiguration: createDefaultStorageConfiguration(),
+      workbookWarnings: [],
+      canOverwriteOriginal: false,
       comparison: {
         id: 2,
         previousFileName: 'previous.xlsx',
@@ -39,6 +45,9 @@ describe('inventoryReducer', () => {
       type: 'workbookLoaded',
       fileName: 'products.xlsx',
       products: [product],
+      storageConfiguration: createDefaultStorageConfiguration(),
+      workbookWarnings: [],
+      canOverwriteOriginal: false,
     });
     const changedState = inventoryReducer(loadedState, {
       type: 'productQuantityChanged',

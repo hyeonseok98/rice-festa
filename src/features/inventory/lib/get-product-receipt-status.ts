@@ -1,6 +1,7 @@
 import type { Product, ProductReceiptStatus } from '../model/product';
 
 export function getProductReceiptStatus(product: Product): ProductReceiptStatus {
+  if (product.locationIssues.length > 0) return 'review';
   const hasQuantity = product.quantity !== null;
   const hasReceivedAt = product.receivedAt !== null;
   const hasLocation = product.location !== null;

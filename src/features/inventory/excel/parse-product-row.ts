@@ -1,5 +1,4 @@
 import type { Product, ProductDivision, ProductQuantity } from '../model/product';
-import { isStorageLocation } from '../model/storage';
 import type { ProductSheetErrorDetail } from './product-sheet-error';
 
 export interface ProductExcelRow {
@@ -94,26 +93,6 @@ function parseQuantity(
   return text || null;
 }
 
-function parseLocation(
-  value: unknown,
-  rowNumber: number,
-  errors: ProductSheetErrorDetail[],
-): string | null {
-  if (value === null || value === undefined || value === '') return null;
-
-  const location = typeof value === 'string' ? value.trim() : '';
-  if (!isStorageLocation(location)) {
-    errors.push({
-      rowNumber,
-      columnName: '보관위치',
-      value,
-      message: `"${String(value)}"은 올바른 보관위치가 아닙니다. 예: 저도주-1, 냉동-2, 렉-4`,
-    });
-    return null;
-  }
-  return location;
-}
-
 function parseOptionalText(value: unknown): string | null {
   if (value === null || value === undefined || value === '') return null;
   const text = String(value).trim();
@@ -135,7 +114,9 @@ export function parseProductRow({
     foodType: parseRequiredText(row.foodType, rowNumber, '식품유형', errors),
     ethanolPercent: parseEthanolPercent(row.ethanolPercent, rowNumber, errors),
     quantity: parseQuantity(row.quantity, rowNumber, errors),
-    location: parseLocation(row.location, rowNumber, errors),
+    location: parseOptionalText(row.location),
+    placements: [],
+    locationIssues: [],
     receivedAt: parseOptionalText(row.receivedAt),
     note: parseOptionalText(row.note),
   };

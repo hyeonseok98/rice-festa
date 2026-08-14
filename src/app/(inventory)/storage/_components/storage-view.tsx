@@ -2,7 +2,7 @@
 
 import { Download, LayoutGrid, MapPin, Search, Settings2, X } from 'lucide-react';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 
 import { filterProducts } from '@/features/inventory/lib/filter-products';
 import { getProductReceiptStatus } from '@/features/inventory/lib/get-product-receipt-status';
@@ -28,13 +28,8 @@ export function StorageView() {
     isDirty,
     changes,
     lastSaveMessage,
-    updateLocation,
     downloadWorkbook,
   } = useInventorySession();
-  const observedLocations = useMemo(
-    () => products.flatMap((product) => (product.location ? [product.location] : [])),
-    [products],
-  );
   const {
     units,
     moveUnit,
@@ -42,7 +37,7 @@ export function StorageView() {
     updateUnitLabel,
     removeUnit,
     resetLayout,
-  } = useStorageLayout(observedLocations);
+  } = useStorageLayout();
   const [viewMode, setViewMode] = useState<StorageViewMode>('map');
   const [searchQuery, setSearchQuery] = useState('');
   const [isEditingLayout, setIsEditingLayout] = useState(false);
@@ -84,7 +79,9 @@ export function StorageView() {
   const searchResults = filterProducts(products, searchQuery);
   const highlightedLocations = new Set(
     searchQuery
-      ? searchResults.flatMap((product) => (product.location ? [product.location] : []))
+      ? searchResults.flatMap((product) =>
+          product.placements.map((placement) => placement.facilityLabel),
+        )
       : [],
   );
   const availableLocations = sortStorageLocations(
@@ -105,46 +102,33 @@ export function StorageView() {
     setSelectedUnitId(unitId);
   };
 
-  const handleAddUnit = (type: StorageType) => {
-    const unitId = addUnit(type);
-    setEditorUnitId(unitId);
+  const handleAddUnit = async (type: StorageType) => {
+    const unitId = await addUnit(type);
+    if (unitId) setEditorUnitId(unitId);
   };
 
   const handleRenameUnit = async (unitId: string, nextLabel: string | null) => {
     const unit = units.find((item) => item.id === unitId);
     if (!unit || unit.label === nextLabel) return;
-    if (nextLabel && units.some((item) => item.id !== unitId && item.label === nextLabel)) {
-      throw new Error('이미 사용 중인 보관위치명입니다.');
-    }
-
     const storedProducts = unit.label ? getProductsAtLocation(products, unit.label) : [];
-    if (storedProducts.length > 0 && !nextLabel) {
-      throw new Error('제품이 있는 설비의 이름은 비울 수 없습니다.');
-    }
     if (
       storedProducts.length > 0 &&
       !window.confirm(`${storedProducts.length}개 출품작의 Excel 보관위치를 ${nextLabel}(으)로 변경할까요?`)
     ) {
       return;
     }
-
-    if (nextLabel) {
-      for (const product of storedProducts) {
-        await updateLocation(product.id, nextLabel);
-      }
-    }
-    updateUnitLabel(unitId, nextLabel);
+    await updateUnitLabel(unitId, nextLabel);
   };
 
-  const handleRemoveUnit = (unitId: string) => {
+  const handleRemoveUnit = async (unitId: string) => {
     if (!window.confirm('선택한 설비를 배치도에서 삭제할까요?')) return;
-    removeUnit(unitId);
+    await removeUnit(unitId);
     setEditorUnitId(null);
   };
 
-  const handleResetLayout = () => {
+  const handleResetLayout = async () => {
     if (!window.confirm('설비 위치와 미지정 설비를 기본 배치로 되돌릴까요?')) return;
-    resetLayout();
+    await resetLayout();
     setEditorUnitId(null);
   };
 
@@ -173,7 +157,7 @@ export function StorageView() {
             </Button>
             <Button disabled={!isDirty || status === 'saving'} onClick={() => void downloadWorkbook()}>
               <Download aria-hidden="true" size={17} />
-              {status === 'saving' ? '변경본 생성 중…' : 'Excel 변경본'}
+              {status === 'saving' ? '저장 중…' : 'Excel 저장'}
             </Button>
           </div>
         </div>

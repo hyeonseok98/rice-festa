@@ -1,9 +1,22 @@
 import { SSF, read, utils, write, type CellObject, type WorkBook, type WorkSheet } from 'xlsx';
 
+import { extractStorageFacilityLabels, parseStorageLocation } from '../lib/parse-storage-location';
+import { serializeStorageLocation } from '../lib/serialize-storage-location';
+import {
+  addObservedStorageFacilities,
+  cloneStorageConfiguration,
+  createDefaultStorageConfiguration,
+} from '../model/storage-layout';
 import type { Product, ProductDivision, ProductQuantity } from '../model/product';
 import type { ProductRepository } from '../model/product-repository';
+import type { StorageConfiguration } from '../model/storage';
+import type { StoragePlacement } from '../model/storage-placement';
 import { parseProductRow, type ProductExcelRow } from './parse-product-row';
 import { ProductSheetValidationError, type ProductSheetErrorDetail } from './product-sheet-error';
+import {
+  readStorageConfigurationMetadata,
+  writeStorageConfigurationMetadata,
+} from './workbook-storage-metadata';
 
 interface ProductSheetSchema {
   sheetName: string;
@@ -169,6 +182,8 @@ export class ExcelProductRepository implements ProductRepository {
     private readonly workbook: WorkBook,
     private products: Product[],
     sources: ExcelProductSource[],
+    private storageConfiguration: StorageConfiguration,
+    private readonly workbookWarnings: string[],
   ) {
     this.sourceByProductId = new Map(sources.map((source) => [source.productId, source]));
   }
@@ -190,7 +205,7 @@ export class ExcelProductRepository implements ProductRepository {
       ]);
     }
 
-    const products: Product[] = [];
+    const productsWithoutParsedLocations: Product[] = [];
     const sources: ExcelProductSource[] = [];
     const errors: ProductSheetErrorDetail[] = [];
 
@@ -224,7 +239,7 @@ export class ExcelProductRepository implements ProductRepository {
         errors.push(...result.errors);
         if (!result.product) continue;
 
-        products.push(result.product);
+        productsWithoutParsedLocations.push(result.product);
         sources.push({
           productId,
           sheetName: schema.sheetName,
@@ -238,11 +253,41 @@ export class ExcelProductRepository implements ProductRepository {
     }
 
     if (errors.length > 0) throw new ProductSheetValidationError(errors);
-    return new ExcelProductRepository(workbook, products, sources);
+
+    const metadataResult = readStorageConfigurationMetadata(workbook);
+    const initialStorageConfiguration =
+      metadataResult.storageConfiguration ?? createDefaultStorageConfiguration();
+    const observedStorageLabels = productsWithoutParsedLocations.flatMap((product) =>
+      extractStorageFacilityLabels(product.location),
+    );
+    const storageConfiguration = addObservedStorageFacilities(
+      initialStorageConfiguration,
+      observedStorageLabels,
+    );
+    const products = productsWithoutParsedLocations.map((product) =>
+      parseProductStorageLocation(product, storageConfiguration),
+    );
+    const workbookWarnings = metadataResult.warningMessage ? [metadataResult.warningMessage] : [];
+
+    return new ExcelProductRepository(
+      workbook,
+      products,
+      sources,
+      storageConfiguration,
+      workbookWarnings,
+    );
   }
 
   async getProducts(): Promise<Product[]> {
-    return this.products.map((product) => ({ ...product }));
+    return this.products.map(cloneProduct);
+  }
+
+  getStorageConfiguration(): StorageConfiguration {
+    return cloneStorageConfiguration(this.storageConfiguration);
+  }
+
+  getWorkbookWarnings(): string[] {
+    return [...this.workbookWarnings];
   }
 
   async updateQuantity(productId: string, quantity: ProductQuantity): Promise<void> {
@@ -257,8 +302,22 @@ export class ExcelProductRepository implements ProductRepository {
 
   async updateLocation(productId: string, location: string | null): Promise<void> {
     const source = this.getSource(productId);
-    this.updateCell(source, source.locationColumn, { t: 's', v: location ?? '' });
-    this.updateProduct(productId, { location });
+    const normalizedLocation = location?.trim() || null;
+    this.updateCell(source, source.locationColumn, { t: 's', v: normalizedLocation ?? '' });
+    const parsedLocation = parseStorageLocation(
+      normalizedLocation,
+      this.storageConfiguration.facilities,
+      productId,
+    );
+    this.updateProduct(productId, {
+      location: normalizedLocation,
+      placements: parsedLocation.placements,
+      locationIssues: parsedLocation.issues,
+    });
+  }
+
+  async updatePlacements(productId: string, placements: StoragePlacement[]): Promise<void> {
+    await this.updateLocation(productId, serializeStorageLocation(placements));
   }
 
   async updateReceivedAt(productId: string, receivedAt: string | null): Promise<void> {
@@ -276,7 +335,20 @@ export class ExcelProductRepository implements ProductRepository {
     this.updateProduct(productId, { note });
   }
 
+  updateStorageConfiguration(
+    storageConfiguration: StorageConfiguration,
+    reparseProductLocations = true,
+  ): void {
+    this.storageConfiguration = cloneStorageConfiguration(storageConfiguration);
+    if (reparseProductLocations) {
+      this.products = this.products.map((product) =>
+        parseProductStorageLocation(product, this.storageConfiguration),
+      );
+    }
+  }
+
   exportArrayBuffer(): ArrayBuffer {
+    writeStorageConfigurationMetadata(this.workbook, this.storageConfiguration);
     return write(this.workbook, { type: 'array', bookType: 'xlsx', cellDates: false, cellStyles: true });
   }
 
@@ -297,4 +369,28 @@ export class ExcelProductRepository implements ProductRepository {
     const address = utils.encode_cell({ c: columnIndex, r: source.rowNumber - 1 });
     worksheet[address] = { ...worksheet[address], ...value };
   }
+}
+
+function cloneProduct(product: Product): Product {
+  return {
+    ...product,
+    placements: product.placements.map((placement) => ({ ...placement })),
+    locationIssues: product.locationIssues.map((issue) => ({ ...issue })),
+  };
+}
+
+function parseProductStorageLocation(
+  product: Product,
+  storageConfiguration: StorageConfiguration,
+): Product {
+  const parsedLocation = parseStorageLocation(
+    product.location,
+    storageConfiguration.facilities,
+    product.id,
+  );
+  return {
+    ...product,
+    placements: parsedLocation.placements,
+    locationIssues: parsedLocation.issues,
+  };
 }

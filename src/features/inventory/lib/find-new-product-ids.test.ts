@@ -13,6 +13,8 @@ function createProduct(overrides: Partial<Product>): Product {
     ethanolPercent: 6,
     quantity: 10,
     location: '저도주-1',
+    placements: [],
+    locationIssues: [],
     receivedAt: '2026-08-01',
     note: null,
     ...overrides,

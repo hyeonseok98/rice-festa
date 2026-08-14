@@ -1,15 +1,23 @@
 export const STORAGE_CATEGORIES = ['저도주', '약청주', '고도주', '냉장', '냉동', '렉'] as const;
 
 export type StorageCategory = (typeof STORAGE_CATEGORIES)[number];
-export type StorageType = 'fridge' | 'freezer' | 'rack';
-export type StorageLocation = `${StorageCategory}-${number}`;
+export type StorageType = 'fridge' | 'freezer' | 'rack' | 'table' | 'shelf';
+export type StorageLocation = `${string}-${number}`;
+export type StorageLevelKind = 'shelf' | 'floor' | 'top' | 'bottom';
 export type StorageFilter =
   | 'all'
   | 'unassigned'
   | `category:${StorageCategory}`
   | `location:${string}`;
 
-export interface StorageUnit {
+export interface StorageLevel {
+  id: string;
+  order: number;
+  kind: StorageLevelKind;
+  slotCount: number;
+}
+
+export interface StorageFacility {
   id: string;
   type: StorageType;
   label: string | null;
@@ -17,15 +25,25 @@ export interface StorageUnit {
   y: number;
   width: number;
   height: number;
+  levels: StorageLevel[];
+  needsLevelReview: boolean;
 }
+
+export interface StorageConfiguration {
+  schemaVersion: 1;
+  layoutWidth: number;
+  layoutHeight: number;
+  facilities: StorageFacility[];
+}
+
+export type StorageUnit = StorageFacility;
 
 export function isStorageCategory(value: string): value is StorageCategory {
   return STORAGE_CATEGORIES.some((category) => category === value);
 }
 
 export function isStorageLocation(value: string): value is StorageLocation {
-  const match = value.match(/^(저도주|약청주|고도주|냉장|냉동|렉)-([1-9]\d*)$/);
-  return Boolean(match && isStorageCategory(match[1]));
+  return value === value.trim() && /^[^\s/:\r\n]+-[1-9]\d*$/.test(value);
 }
 
 export function getStorageCategory(location: string): StorageCategory | null {
@@ -33,12 +51,21 @@ export function getStorageCategory(location: string): StorageCategory | null {
     return null;
   }
 
-  return location.slice(0, location.lastIndexOf('-')) as StorageCategory;
+  const category = location.slice(0, location.lastIndexOf('-'));
+  return isStorageCategory(category) ? category : null;
 }
 
 export function getStorageType(location: string): StorageType | null {
   const category = getStorageCategory(location);
-  if (category === null) return null;
+  const facilityName = location.slice(0, location.lastIndexOf('-'));
+  if (category === null) {
+    if (facilityName.includes('냉동')) return 'freezer';
+    if (facilityName.includes('렉')) return 'rack';
+    if (facilityName.includes('테이블')) return 'table';
+    if (facilityName.includes('선반')) return 'shelf';
+    if (facilityName.includes('냉장')) return 'fridge';
+    return null;
+  }
   if (category === '냉동') return 'freezer';
   if (category === '렉') return 'rack';
   return 'fridge';
@@ -60,10 +87,15 @@ export function sortStorageLocations(locations: string[]): string[] {
   return [...new Set(locations.filter(isStorageLocation))].sort((left, right) => {
     const leftCategory = getStorageCategory(left);
     const rightCategory = getStorageCategory(right);
-    const categoryDifference =
-      STORAGE_CATEGORIES.indexOf(leftCategory ?? '저도주') -
-      STORAGE_CATEGORIES.indexOf(rightCategory ?? '저도주');
+    const leftCategoryIndex = leftCategory ? STORAGE_CATEGORIES.indexOf(leftCategory) : STORAGE_CATEGORIES.length;
+    const rightCategoryIndex = rightCategory ? STORAGE_CATEGORIES.indexOf(rightCategory) : STORAGE_CATEGORIES.length;
+    const categoryDifference = leftCategoryIndex - rightCategoryIndex;
     if (categoryDifference !== 0) return categoryDifference;
+
+    if (leftCategory === null || rightCategory === null) {
+      const labelDifference = left.localeCompare(right, 'ko-KR', { numeric: true });
+      if (labelDifference !== 0) return labelDifference;
+    }
 
     const leftNumber = Number(left.slice(left.lastIndexOf('-') + 1));
     const rightNumber = Number(right.slice(right.lastIndexOf('-') + 1));

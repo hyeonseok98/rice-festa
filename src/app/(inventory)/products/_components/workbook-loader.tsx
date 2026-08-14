@@ -9,12 +9,18 @@ import { Button } from '@/shared/ui/button';
 export function WorkbookLoader() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const { status, errorMessage, validationErrors, loadWorkbook } = useInventorySession();
+  const { status, errorMessage, validationErrors, loadWorkbook, selectWorkbookFile } =
+    useInventorySession();
 
   const handleFile = async (file: File | undefined) => {
     if (file) {
       await loadWorkbook(file);
     }
+  };
+
+  const handleSelectWorkbook = async () => {
+    const pickerStatus = await selectWorkbookFile();
+    if (pickerStatus === 'unsupported') inputRef.current?.click();
   };
 
   return (
@@ -25,8 +31,8 @@ export function WorkbookLoader() {
           출품작 목록을 불러와주세요
         </h1>
         <p className="mx-auto mt-4 max-w-140 text-base leading-7 text-muted-foreground">
-          파일은 서버에 업로드되지 않고 현재 브라우저에서만 열립니다. 수정 후 별도의 변경본으로
-          다운로드할 수 있습니다.
+          파일은 서버에 업로드되지 않고 현재 브라우저에서만 열립니다. 지원되는 브라우저에서는
+          사용자가 승인한 원본 파일에 다시 저장할 수 있습니다.
         </p>
       </div>
 
@@ -68,7 +74,7 @@ export function WorkbookLoader() {
         <Button
           className="mt-6"
           disabled={status === 'loading'}
-          onClick={() => inputRef.current?.click()}
+          onClick={() => void handleSelectWorkbook()}
         >
           <Upload aria-hidden="true" size={18} />
           {status === 'loading' ? '파일 확인 중…' : 'Excel 파일 선택'}

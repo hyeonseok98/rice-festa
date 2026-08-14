@@ -74,18 +74,48 @@ describe('ExcelProductRepository', () => {
     const product = products[1];
 
     await repository.updateQuantity(product.id, 7);
-    await repository.updateLocation(product.id, '고도주-5');
+    await repository.updateLocation(
+      product.id,
+      '고도주-5 / 칸3 / 자리1-2\n박스: 렉-1 / 칸4 / 자리7 / 뒤쪽',
+    );
     await repository.updateReceivedAt(product.id, '2026-08-14');
     await repository.updateNote(product.id, '배치 완료');
 
-    const savedWorkbook = read(repository.exportArrayBuffer(), { type: 'array', cellDates: false });
+    const savedBuffer = repository.exportArrayBuffer();
+    const savedWorkbook = read(savedBuffer, { type: 'array', cellDates: false });
     const worksheet = savedWorkbook.Sheets['우리술'];
     expect(worksheet.J6.v).toBe('서울 막걸리 12');
     expect(worksheet.M6.v).toBe(7);
-    expect(worksheet.N6.v).toBe('고도주-5');
+    expect(worksheet.N6.v).toBe(
+      '고도주-5 / 칸3 / 자리1-2\n박스: 렉-1 / 칸4 / 자리7 / 뒤쪽',
+    );
     expect(worksheet.O6.v).toBe(46248);
     expect(worksheet.P6.v).toBe('배치 완료');
     expect(savedWorkbook.Sheets['품평회 접수목록'].A1.v).toBe('보존할 값');
+    const customProperties = savedWorkbook.Custprops as Record<string, unknown> | undefined;
+    expect(customProperties?.RiceStorageSchema).toBe(1);
+
+    const reloadedRepository = ExcelProductRepository.fromArrayBuffer(savedBuffer);
+    const reloadedProduct = (await reloadedRepository.getProducts()).find(
+      (item) => item.id === product.id,
+    );
+    expect(reloadedProduct?.placements).toHaveLength(2);
+    expect(reloadedProduct?.placements[0]).toMatchObject({
+      facilityLabel: '고도주-5',
+      levelNumber: 3,
+      slotStart: 1,
+      slotEnd: 2,
+      isBehind: false,
+      purpose: null,
+    });
+    expect(reloadedProduct?.placements[1]).toMatchObject({
+      facilityLabel: '렉-1',
+      levelNumber: 4,
+      slotStart: 7,
+      slotEnd: 7,
+      isBehind: true,
+      purpose: 'box',
+    });
   });
 
   it('운영 시트의 헤더가 다르면 모든 오류를 모아 안내한다', () => {

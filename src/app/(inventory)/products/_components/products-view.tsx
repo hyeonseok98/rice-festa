@@ -30,10 +30,12 @@ export function ProductsView() {
     changes,
     errorMessage,
     lastSaveMessage,
+    workbookWarnings,
     previousFileName,
     newProductIds,
     comparisonId,
     loadWorkbook,
+    selectWorkbookFile,
     downloadWorkbook,
   } = useInventorySession();
   const [searchQuery, setSearchQuery] = useState('');
@@ -48,7 +50,9 @@ export function ProductsView() {
   const availableLocations = useMemo(
     () =>
       sortStorageLocations(
-        products.flatMap((product) => (product.location ? [product.location] : [])),
+        products.flatMap((product) =>
+          product.placements.map((placement) => placement.facilityLabel),
+        ),
       ),
     [products],
   );
@@ -97,7 +101,14 @@ export function ProductsView() {
                 event.target.value = '';
               }}
             />
-            <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                void selectWorkbookFile().then((pickerStatus) => {
+                  if (pickerStatus === 'unsupported') fileInputRef.current?.click();
+                });
+              }}
+            >
               <RefreshCw aria-hidden="true" size={17} />
               새 파일 비교
             </Button>
@@ -106,7 +117,7 @@ export function ProductsView() {
               onClick={() => void downloadWorkbook()}
             >
               <Download aria-hidden="true" size={18} />
-              {status === 'saving' ? '변경본 생성 중…' : '변경본 다운로드'}
+              {status === 'saving' ? '저장 중…' : 'Excel 저장'}
             </Button>
           </div>
         </div>
@@ -118,6 +129,17 @@ export function ProductsView() {
               <span className="font-semibold text-foreground">{previousFileName}</span>과 비교한 결과입니다.
               수량, 수령일, 위치와 비고 변경은 신규로 보지 않습니다.
             </p>
+          </div>
+        ) : null}
+
+        {workbookWarnings.length > 0 ? (
+          <div className="mt-5 border-l-3 border-warning bg-warning-soft px-4 py-3" role="status">
+            <p className="text-sm font-bold text-warning">Excel 설정 확인</p>
+            {workbookWarnings.map((warningMessage) => (
+              <p key={warningMessage} className="mt-1 text-sm leading-6 text-foreground">
+                {warningMessage}
+              </p>
+            ))}
           </div>
         ) : null}
 

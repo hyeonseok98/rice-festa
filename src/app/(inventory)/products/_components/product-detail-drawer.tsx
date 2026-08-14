@@ -30,17 +30,12 @@ function formatQuantity(quantity: Product['quantity']): string {
 
 export function ProductDetailDrawer({ product, onClose }: ProductDetailDrawerProps) {
   const {
-    products,
     updateQuantity,
     updateLocation,
     updateReceivedAt,
     updateNote,
   } = useInventorySession();
-  const observedLocations = useMemo(
-    () => products.flatMap((item) => (item.location ? [item.location] : [])),
-    [products],
-  );
-  const { units } = useStorageLayout(observedLocations);
+  const { units } = useStorageLayout();
   const availableLocations = useMemo(
     () => sortStorageLocations(units.flatMap((unit) => (unit.label ? [unit.label] : []))),
     [units],
@@ -148,16 +143,41 @@ export function ProductDetailDrawer({ product, onClose }: ProductDetailDrawerPro
             <div>
               <label htmlFor="product-location" className="block text-sm font-bold">보관 위치</label>
               <select
+                aria-label="설비명 빠른 입력"
+                value=""
+                className="mt-2 h-11 w-full rounded-xl border border-border bg-surface px-3 text-sm text-muted-foreground outline-none focus:border-primary focus:ring-3 focus:ring-primary/25"
+                onChange={(event) => {
+                  const facilityLabel = event.target.value;
+                  if (facilityLabel) {
+                    setLocation((currentLocation) =>
+                      currentLocation.trim()
+                        ? `${currentLocation.trim()}\n${facilityLabel}`
+                        : facilityLabel,
+                    );
+                  }
+                }}
+              >
+                <option value="">설비명을 선택해 입력할 수 있습니다</option>
+                {availableLocations.map((item) => <option key={item} value={item}>{item}</option>)}
+              </select>
+              <textarea
                 id="product-location"
                 value={location}
-                className="mt-2 h-13 w-full rounded-xl border border-border-strong bg-surface px-4 outline-none focus:border-primary focus:ring-3 focus:ring-primary/25"
+                rows={4}
+                placeholder={'예: 고도주-3 / 칸3 / 자리1-2\n박스: 렉-1 / 칸2 / 자리5 / 뒤쪽'}
+                className="mt-2 w-full resize-y rounded-xl border border-border-strong bg-surface px-4 py-3 leading-6 outline-none focus:border-primary focus:ring-3 focus:ring-primary/25"
                 onChange={(event) => setLocation(event.target.value)}
-              >
-                <option value="">위치 미지정</option>
-                {availableLocations.map((item) => (
-                  <option key={item} value={item}>{item}</option>
-                ))}
-              </select>
+              />
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                여러 곳에 나뉘면 줄을 바꿔 입력합니다. 일반 배치는 용도를 생략해주세요.
+              </p>
+              {product.locationIssues.length > 0 ? (
+                <ul className="mt-3 space-y-1 text-sm text-warning">
+                  {product.locationIssues.map((issue, index) => (
+                    <li key={`${issue.type}-${index}`}>{issue.message}</li>
+                  ))}
+                </ul>
+              ) : null}
               {hasLocationChange ? (
                 <p className="mt-2 text-sm font-semibold text-primary" aria-live="polite">
                   {product.location ?? '미지정'} → {nextLocation ?? '미지정'}

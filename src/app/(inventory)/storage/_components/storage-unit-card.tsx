@@ -31,7 +31,14 @@ export function StorageUnitCard({
   onPointerUp,
   onKeyDown,
 }: StorageUnitCardProps) {
-  const Icon = unit.type === 'freezer' ? Snowflake : unit.type === 'rack' ? Archive : Refrigerator;
+  const Icon = unit.type === 'freezer' ? Snowflake : unit.type === 'fridge' ? Refrigerator : Archive;
+  const typeLabel = {
+    fridge: '냉장고',
+    freezer: '냉동고',
+    rack: '렉',
+    shelf: '선반',
+    table: '테이블',
+  }[unit.type];
 
   return (
     <button
@@ -57,7 +64,7 @@ export function StorageUnitCard({
     >
       <span className="flex w-full items-center gap-2 text-xs font-bold text-muted-foreground">
         <Icon aria-hidden="true" size={15} />
-        {unit.type === 'fridge' ? '냉장고' : unit.type === 'freezer' ? '냉동고' : '렉'}
+        {typeLabel}
       </span>
       <strong className="mt-1 block w-full truncate text-sm">{unit.label ?? '이름 미지정'}</strong>
       <span className="mt-auto text-xs text-muted-foreground">

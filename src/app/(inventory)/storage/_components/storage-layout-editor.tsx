@@ -51,7 +51,7 @@ export function StorageLayoutEditor({
     <aside className="rounded-2xl border border-border bg-surface p-5" aria-label="배치 편집 도구">
       <h2 className="font-extrabold">설비 추가</h2>
       <p className="mt-1 text-sm leading-6 text-muted-foreground">추가한 설비는 지도에서 원하는 위치로 옮겨주세요.</p>
-      <div className="mt-4 grid grid-cols-3 gap-2">
+      <div className="mt-4 grid grid-cols-2 gap-2">
         <Button variant="secondary" className="px-2" onClick={() => onAddUnit('fridge')}>
           <Plus aria-hidden="true" size={16} /> 냉장고
         </Button>
@@ -60,6 +60,12 @@ export function StorageLayoutEditor({
         </Button>
         <Button variant="secondary" className="px-2" onClick={() => onAddUnit('rack')}>
           <Plus aria-hidden="true" size={16} /> 렉
+        </Button>
+        <Button variant="secondary" className="px-2" onClick={() => onAddUnit('shelf')}>
+          <Plus aria-hidden="true" size={16} /> 선반
+        </Button>
+        <Button variant="secondary" className="px-2" onClick={() => onAddUnit('table')}>
+          <Plus aria-hidden="true" size={16} /> 테이블
         </Button>
       </div>
 
@@ -106,7 +112,7 @@ export function StorageLayoutEditor({
       <Button variant="ghost" className="w-full" onClick={onResetLayout}>
         <RotateCcw aria-hidden="true" size={16} /> 기본 배치로 초기화
       </Button>
-      <p className="mt-3 text-center text-xs text-muted-foreground">배치는 이 브라우저에 자동 저장됩니다.</p>
+      <p className="mt-3 text-center text-xs text-muted-foreground">배치는 현재 Excel 파일 내부에 저장됩니다.</p>
     </aside>
   );
 }

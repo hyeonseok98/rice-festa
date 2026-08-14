@@ -1,3 +1,5 @@
+import type { StorageLocationIssue, StoragePlacement } from './storage-placement';
+
 export type ProductDivision = 'traditional-liquor' | 'rice-product';
 export type ProductQuantity = number | string | null;
 export type ProductReceiptStatus = 'not-received' | 'unassigned' | 'assigned' | 'review';
@@ -11,6 +13,8 @@ export interface Product {
   ethanolPercent: number | null;
   quantity: ProductQuantity;
   location: string | null;
+  placements: StoragePlacement[];
+  locationIssues: StorageLocationIssue[];
   receivedAt: string | null;
   note: string | null;
 }

@@ -15,8 +15,16 @@ export function filterProductsByStorage(
 
   const [filterType, filterValue] = storageFilter.split(':');
   if (filterType === 'category') {
-    return products.filter((product) => product.location?.startsWith(`${filterValue}-`));
+    return products.filter((product) =>
+      product.placements.some((placement) =>
+        placement.facilityLabel.startsWith(`${filterValue}-`),
+      ),
+    );
   }
 
-  return products.filter((product) => product.location === filterValue);
+  return products.filter(
+    (product) =>
+      product.location === filterValue ||
+      product.placements.some((placement) => placement.facilityLabel === filterValue),
+  );
 }

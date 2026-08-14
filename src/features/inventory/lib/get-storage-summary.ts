@@ -8,7 +8,11 @@ export interface StorageSummary {
 }
 
 export function getProductsAtLocation(products: Product[], location: string): Product[] {
-  return products.filter((product) => product.location === location);
+  return products.filter(
+    (product) =>
+      product.location === location ||
+      product.placements.some((placement) => placement.facilityLabel === location),
+  );
 }
 
 export function getStorageSummary(products: Product[], storageUnit: StorageUnit): StorageSummary {

@@ -1,4 +1,7 @@
 import type { Product, ProductChange, ProductQuantity } from '../model/product';
+import { createDefaultStorageConfiguration } from '../model/storage-layout';
+import type { StorageConfiguration } from '../model/storage';
+import type { StorageLocationIssue, StoragePlacement } from '../model/storage-placement';
 import type { ProductSheetErrorDetail } from '../excel/product-sheet-error';
 
 export type InventorySessionStatus =
@@ -13,6 +16,8 @@ export interface InventoryState {
   isDirty: boolean;
   fileName: string | null;
   products: Product[];
+  storageConfiguration: StorageConfiguration;
+  isStorageConfigurationDirty: boolean;
   changes: Record<string, ProductChange>;
   errorMessage: string | null;
   validationErrors: ProductSheetErrorDetail[];
@@ -20,6 +25,8 @@ export interface InventoryState {
   previousFileName: string | null;
   newProductIds: string[];
   comparisonId: number | null;
+  workbookWarnings: string[];
+  canOverwriteOriginal: boolean;
 }
 
 export const initialInventoryState: InventoryState = {
@@ -27,6 +34,8 @@ export const initialInventoryState: InventoryState = {
   isDirty: false,
   fileName: null,
   products: [],
+  storageConfiguration: createDefaultStorageConfiguration(),
+  isStorageConfigurationDirty: false,
   changes: {},
   errorMessage: null,
   validationErrors: [],
@@ -34,14 +43,19 @@ export const initialInventoryState: InventoryState = {
   previousFileName: null,
   newProductIds: [],
   comparisonId: null,
+  workbookWarnings: [],
+  canOverwriteOriginal: false,
 };
 
-type InventoryAction =
+export type InventoryAction =
   | { type: 'workbookLoadStarted'; fileName: string }
   | {
       type: 'workbookLoaded';
       fileName: string;
       products: Product[];
+      storageConfiguration: StorageConfiguration;
+      workbookWarnings: string[];
+      canOverwriteOriginal: boolean;
       comparison?: { id: number; previousFileName: string; newProductIds: string[] };
     }
   | {
@@ -61,12 +75,25 @@ type InventoryAction =
       productId: string;
       before: string | null;
       after: string | null;
+      placements: StoragePlacement[];
+      locationIssues: StorageLocationIssue[];
     }
   | {
       type: 'productReceivedAtChanged';
       productId: string;
       before: string | null;
       after: string | null;
+    }
+  | {
+      type: 'storageConfigurationChanged';
+      storageConfiguration: StorageConfiguration;
+      products?: Product[];
+    }
+  | {
+      type: 'sessionRestored';
+      products: Product[];
+      storageConfiguration: StorageConfiguration;
+      message: string;
     }
   | {
       type: 'productNoteChanged';
@@ -94,7 +121,7 @@ function withUpdatedChange(
 
   return {
     changes: nextChanges,
-    isDirty: Object.keys(nextChanges).length > 0,
+    isDirty: Object.keys(nextChanges).length > 0 || state.isStorageConfigurationDirty,
   };
 }
 
@@ -118,6 +145,9 @@ export function inventoryReducer(
         status: 'ready',
         fileName: action.fileName,
         products: action.products,
+        storageConfiguration: action.storageConfiguration,
+        workbookWarnings: action.workbookWarnings,
+        canOverwriteOriginal: action.canOverwriteOriginal,
         previousFileName: action.comparison?.previousFileName ?? null,
         newProductIds: action.comparison?.newProductIds ?? [],
         comparisonId: action.comparison?.id ?? null,
@@ -165,11 +195,39 @@ export function inventoryReducer(
         ...state,
         ...changeState,
         products: state.products.map((product) =>
-          product.id === action.productId ? { ...product, location: action.after } : product,
+          product.id === action.productId
+            ? {
+                ...product,
+                location: action.after,
+                placements: action.placements,
+                locationIssues: action.locationIssues,
+              }
+            : product,
         ),
         lastSaveMessage: null,
       };
     }
+    case 'storageConfigurationChanged':
+      return {
+        ...state,
+        storageConfiguration: action.storageConfiguration,
+        products: action.products ?? state.products,
+        isStorageConfigurationDirty: true,
+        isDirty: true,
+        lastSaveMessage: null,
+      };
+    case 'sessionRestored':
+      return {
+        ...state,
+        status: 'ready',
+        products: action.products,
+        storageConfiguration: action.storageConfiguration,
+        isStorageConfigurationDirty: true,
+        isDirty: true,
+        changes: {},
+        errorMessage: null,
+        lastSaveMessage: action.message,
+      };
     case 'productReceivedAtChanged': {
       const currentChange = state.changes[action.productId];
       const originalReceivedAt = currentChange?.receivedAt?.before ?? action.before;
@@ -217,6 +275,7 @@ export function inventoryReducer(
         ...state,
         status: 'ready',
         isDirty: false,
+        isStorageConfigurationDirty: false,
         changes: {},
         lastSaveMessage: action.message,
       };

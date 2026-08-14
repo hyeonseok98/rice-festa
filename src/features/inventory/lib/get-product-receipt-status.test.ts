@@ -13,6 +13,8 @@ function createProduct(overrides: Partial<Product>): Product {
     ethanolPercent: 6,
     quantity: null,
     location: null,
+    placements: [],
+    locationIssues: [],
     receivedAt: null,
     note: null,
     ...overrides,

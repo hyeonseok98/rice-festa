@@ -80,14 +80,41 @@ export function StorageProductDrawer({ product, locations, onClose }: StoragePro
           <div className="mt-7">
             <label htmlFor="storage-product-location" className="block text-sm font-bold">보관위치</label>
             <select
-              id="storage-product-location"
-              value={location}
-              className="mt-2 h-13 w-full rounded-xl border border-border-strong bg-surface px-4 outline-none focus:border-primary focus:ring-3 focus:ring-primary/25"
-              onChange={(event) => setLocation(event.target.value)}
+              aria-label="설비명 빠른 입력"
+              value=""
+              className="mt-2 h-11 w-full rounded-xl border border-border bg-surface px-3 text-sm text-muted-foreground outline-none focus:border-primary focus:ring-3 focus:ring-primary/25"
+              onChange={(event) => {
+                const facilityLabel = event.target.value;
+                if (facilityLabel) {
+                  setLocation((currentLocation) =>
+                    currentLocation.trim()
+                      ? `${currentLocation.trim()}\n${facilityLabel}`
+                      : facilityLabel,
+                  );
+                }
+              }}
             >
-              <option value="">위치 미지정</option>
+              <option value="">설비명을 선택해 입력할 수 있습니다</option>
               {locations.map((item) => <option key={item} value={item}>{item}</option>)}
             </select>
+            <textarea
+              id="storage-product-location"
+              value={location}
+              rows={5}
+              placeholder={'예: 렉-1 / 칸2 / 자리1-2\n박스: 테이블-1 / 아래'}
+              className="mt-2 w-full resize-y rounded-xl border border-border-strong bg-surface px-4 py-3 leading-6 outline-none focus:border-primary focus:ring-3 focus:ring-primary/25"
+              onChange={(event) => setLocation(event.target.value)}
+            />
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">
+              칸과 자리는 생략할 수 있으며, 여러 위치는 줄을 바꿔 입력합니다.
+            </p>
+            {product.locationIssues.length > 0 ? (
+              <ul className="mt-3 space-y-1 text-sm text-warning">
+                {product.locationIssues.map((issue, index) => (
+                  <li key={`${issue.type}-${index}`}>{issue.message}</li>
+                ))}
+              </ul>
+            ) : null}
           </div>
 
           {errorMessage ? (

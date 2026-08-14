@@ -13,6 +13,19 @@ function createProduct(id: string, location: Product['location']): Product {
     ethanolPercent: 6,
     quantity: 10,
     location,
+    placements: location
+      ? [{
+          id: `${id}:placement:1`,
+          facilityId: location,
+          facilityLabel: location,
+          levelNumber: null,
+          slotStart: null,
+          slotEnd: null,
+          isBehind: false,
+          purpose: null,
+        }]
+      : [],
+    locationIssues: [],
     receivedAt: '2026-08-01',
     note: null,
   };
