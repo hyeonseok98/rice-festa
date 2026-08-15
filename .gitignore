@@ -3,6 +3,7 @@ node_modules/
 coverage/
 *.tsbuildinfo
 *.log
+pnpm-lock.yaml
 .env*
 !.env.example
 .codex-work/

@@ -62,7 +62,7 @@ function createDefaultStorageFacilities(): StorageFacility[] {
     createStorageFacility('FREEZER_01', 'freezer', '냉동-1', { x: 28, y: 28, width: 132 }),
     createStorageFacility('FREEZER_02', 'freezer', '냉동-2', { x: 170, y: 28, width: 132 }),
     createStorageFacility('FRIDGE_01', 'fridge', '냉장-1', { x: 360, y: 28 }),
-    createStorageFacility('FRIDGE_02', 'fridge', '냉장-2', { x: 490, y: 28 }),
+    createStorageFacility('FRIDGE_YAK_05', 'fridge', '약청주-5', { x: 490, y: 28 }),
     createStorageFacility('FRIDGE_YAK_04', 'fridge', '약청주-4', { x: 620, y: 28, width: 130 }),
     createStorageFacility('FRIDGE_YAK_03', 'fridge', '약청주-3', { x: 760, y: 28, width: 90 }),
     createStorageFacility('FRIDGE_YAK_02', 'fridge', '약청주-2', { x: 860, y: 28 }),
