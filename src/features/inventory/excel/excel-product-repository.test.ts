@@ -111,6 +111,8 @@ describe('ExcelProductRepository', () => {
     expect(customProperties?.RiceStorageSchema).toBe(1);
 
     const reloadedRepository = ExcelProductRepository.fromArrayBuffer(savedBuffer);
+    expect(reloadedRepository.getWorkbookWarnings()).toEqual([]);
+    expect(reloadedRepository.getStorageConfiguration().facilities[0]?.label).toBe('냉동-1');
     const reloadedProduct = (await reloadedRepository.getProducts()).find(
       (item) => item.id === product.id,
     );

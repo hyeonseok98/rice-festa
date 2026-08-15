@@ -93,6 +93,38 @@ function calculateMetadataChecksum(serializedConfiguration: string): string {
   return (checksum >>> 0).toString(16).padStart(8, '0');
 }
 
+function decodeUtf8Mojibake(value: string): string | null {
+  const bytes = new Uint8Array(value.length);
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code > 0xff) return null;
+    bytes[index] = code;
+  }
+
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    return null;
+  }
+}
+
+function recoverSerializedConfiguration(
+  chunks: string[],
+  expectedChecksum: string,
+): string | null {
+  const serializedConfiguration = chunks.join('');
+  if (calculateMetadataChecksum(serializedConfiguration) === expectedChecksum) {
+    return serializedConfiguration;
+  }
+
+  const decodedChunks = chunks.map(decodeUtf8Mojibake);
+  if (decodedChunks.some((chunk) => chunk === null)) return null;
+  const decodedConfiguration = (decodedChunks as string[]).join('');
+  return calculateMetadataChecksum(decodedConfiguration) === expectedChecksum
+    ? decodedConfiguration
+    : null;
+}
+
 function createMetadataChunks(serializedConfiguration: string): string[] {
   const chunks: string[] = [];
   for (let index = 0; index < serializedConfiguration.length; index += STORAGE_METADATA_CHUNK_LENGTH) {
@@ -136,9 +168,9 @@ export function readStorageConfigurationMetadata(workbook: WorkBook): StorageMet
     };
   }
 
-  const serializedConfiguration = chunks.join('');
   const expectedChecksum = String(customProperties[STORAGE_METADATA_CHECKSUM_KEY] ?? '');
-  if (calculateMetadataChecksum(serializedConfiguration) !== expectedChecksum) {
+  const serializedConfiguration = recoverSerializedConfiguration(chunks as string[], expectedChecksum);
+  if (serializedConfiguration === null) {
     return {
       storageConfiguration: null,
       warningMessage: 'Excel 내부 설비 설정이 손상되어 기본 배치로 열었습니다.',

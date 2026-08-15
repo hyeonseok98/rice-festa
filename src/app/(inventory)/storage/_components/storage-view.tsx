@@ -65,7 +65,7 @@ export function StorageView() {
         <StorageOverviewMap configuration={inventory.storageConfiguration} products={inventory.products} highlightedFacilityIds={highlightedFacilityIds} highlightActive={Boolean(selectedProduct || search.isActive)} choosingFacility={isChoosingFacility} onOpenFacility={openFacility} />
       </div>
 
-      {dialog.state.kind !== 'closed' && dialogFacility ? <FacilityModal state={dialog.state} facility={dialogFacility} products={inventory.products} selectedProductId={selectedProductId} onClose={dialog.close} onBrowse={dialog.openBrowse} onPickProduct={dialog.pickProduct} onStartPlacement={dialog.startPlacement} onEditPlacement={editPlacement} onSelectSlot={dialog.selectSlot} onDraftChange={dialog.updateDraft} onSavePlacement={inventory.saveProductPlacement} onClearPlacementPosition={inventory.clearProductPlacementPosition} onRemovePlacement={inventory.removeProductPlacement} /> : null}
+      {dialog.state.kind !== 'closed' && dialogFacility ? <FacilityModal state={dialog.state} facility={dialogFacility} products={inventory.products} selectedProductId={selectedProductId} onClose={dialog.close} onBrowse={dialog.openBrowse} onPickProduct={dialog.pickProduct} onStartPlacement={dialog.startPlacement} onEditPlacement={editPlacement} onSelectSlot={dialog.selectSlot} onDraftChange={dialog.updateDraft} onSavePlacement={inventory.saveProductPlacement} onClearPlacementPosition={inventory.clearProductPlacementPosition} onRemovePlacement={inventory.removeProductPlacement} onUpdateNote={inventory.updateNote} /> : null}
       {isLayoutEditorOpen ? <StorageLayoutEditorModal onClose={() => setIsLayoutEditorOpen(false)} /> : null}
     </section>
   );
