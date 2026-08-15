@@ -13,7 +13,6 @@ import { useStorageSearch } from '../_hooks/use-storage-search';
 import { getHighlightedFacilityIds } from '../_lib/storage-selectors';
 import { FacilityModal } from './facility-modal/facility-modal';
 import { StorageLayoutEditorModal } from './layout-editor/storage-layout-editor-modal';
-import { SelectedProductBar } from './selected-product-bar';
 import { StorageOverviewMap } from './storage-overview-map';
 import { StorageSearchPanel } from './storage-search-panel';
 import { StorageSearchResults } from './storage-search-results';
@@ -41,6 +40,20 @@ export function StorageView() {
     setSelectedProductId((current) => current === productId ? null : productId);
     setIsChoosingFacility(false);
   };
+  const clearSearch = () => {
+    search.clear();
+    setSelectedProductId(null);
+    setIsChoosingFacility(false);
+  };
+  const updateSearchQuery = (value: string) => {
+    if (!value) {
+      clearSearch();
+      return;
+    }
+    search.setQuery(value);
+    setSelectedProductId(null);
+    setIsChoosingFacility(false);
+  };
   const openFacility = (facilityId: string) => {
     if (isChoosingFacility && selectedProductId) {
       dialog.startPlacement(facilityId, selectedProductId);
@@ -57,11 +70,10 @@ export function StorageView() {
   return (
     <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-surface" aria-labelledby="storage-title">
       <PageHeader title="보관 위치" countLabel={`${inventory.products.length.toLocaleString('ko-KR')}종`} description="제품을 찾거나 설비를 열어 실제 선반 위치를 확인하고 배치합니다." titleId="storage-title" variant="workspace" actions={<Button variant="secondary" className="min-h-10 px-3" onClick={() => setIsLayoutEditorOpen(true)}><Settings2 aria-hidden="true" size={16} />설비 편집</Button>} />
-      <StorageSearchPanel query={search.query} division={search.division} category={search.category} queue={search.queue} isActive={search.isActive} onQueryChange={search.setQuery} onDivisionChange={search.setDivision} onCategoryChange={search.setCategory} onQueueChange={search.setQueue} onClear={search.clear} />
-      {selectedProduct ? <SelectedProductBar product={selectedProduct} facilities={inventory.storageConfiguration.facilities} onOpenPlacement={(facilityId) => dialog.openBrowse(facilityId, selectedProduct.id)} onChooseFacility={() => setIsChoosingFacility(true)} onClear={() => { setSelectedProductId(null); setIsChoosingFacility(false); }} /> : null}
+      <StorageSearchPanel query={search.query} division={search.division} category={search.category} queue={search.queue} isActive={search.isActive} onQueryChange={updateSearchQuery} onDivisionChange={search.setDivision} onCategoryChange={search.setCategory} onQueueChange={search.setQueue} onClear={clearSearch} />
 
       <div className={`grid min-h-0 flex-1 overflow-hidden ${search.isActive ? 'grid-rows-[minmax(220px,0.8fr)_minmax(320px,1.2fr)] md:grid-cols-[320px_minmax(0,1fr)] md:grid-rows-1' : 'grid-cols-1'}`}>
-        {search.isActive ? <StorageSearchResults results={search.visibleResults} totalCount={search.results.length} page={search.currentPage} pageCount={search.pageCount} selectedProductId={selectedProductId} onSelectProduct={selectProduct} onPageChange={search.setPage} onClose={search.clear} /> : null}
+        {search.isActive ? <StorageSearchResults results={search.visibleResults} totalCount={search.results.length} page={search.currentPage} pageCount={search.pageCount} selectedProductId={selectedProductId} onSelectProduct={selectProduct} onPageChange={search.setPage} onClose={clearSearch} /> : null}
         <StorageOverviewMap configuration={inventory.storageConfiguration} products={inventory.products} highlightedFacilityIds={highlightedFacilityIds} highlightActive={Boolean(selectedProduct || search.isActive)} choosingFacility={isChoosingFacility} onOpenFacility={openFacility} />
       </div>
 
