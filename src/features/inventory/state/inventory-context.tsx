@@ -18,6 +18,7 @@ interface InventoryContextValue extends InventoryState {
   updateLocation: (productId: string, location: string | null) => Promise<void>;
   updatePlacements: (productId: string, placements: StoragePlacement[]) => Promise<void>;
   saveProductPlacement: (productId: string, mutation: StoragePlacementMutation) => Promise<string>;
+  clearProductPlacementPosition: (productId: string, placementId: string) => Promise<void>;
   removeProductPlacement: (productId: string, placementId: string) => Promise<void>;
   updateReceivedAt: (productId: string, receivedAt: string | null) => Promise<void>;
   updateNote: (productId: string, note: string | null) => Promise<void>;

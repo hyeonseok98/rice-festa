@@ -14,6 +14,7 @@ interface ProductCommands {
   updateLocation: (productId: string, location: string | null) => Promise<void>;
   updatePlacements: (productId: string, placements: StoragePlacement[]) => Promise<void>;
   saveProductPlacement: (productId: string, mutation: StoragePlacementMutation) => Promise<string>;
+  clearProductPlacementPosition: (productId: string, placementId: string) => Promise<void>;
   removeProductPlacement: (productId: string, placementId: string) => Promise<void>;
   updateReceivedAt: (productId: string, receivedAt: string | null) => Promise<void>;
   updateNote: (productId: string, note: string | null) => Promise<void>;
@@ -124,6 +125,28 @@ export function useProductCommands(
     [products, updatePlacements],
   );
 
+  const clearProductPlacementPosition = useCallback(
+    async (productId: string, placementId: string) => {
+      const product = findProduct(products, productId);
+      const placement = product.placements.find((item) => item.id === placementId);
+      if (!placement) throw new Error('배치를 해제할 위치를 찾을 수 없습니다.');
+      await updatePlacements(
+        productId,
+        product.placements.map((item) => item.id === placementId
+          ? {
+              ...item,
+              levelNumber: null,
+              slotStart: null,
+              slotEnd: null,
+              isBehind: false,
+              purpose: null,
+            }
+          : item),
+      );
+    },
+    [products, updatePlacements],
+  );
+
   const updateReceivedAt = useCallback(
     async (productId: string, receivedAt: string | null) => {
       const activeWorkbookSession = activeWorkbookSessionRef.current;
@@ -166,6 +189,7 @@ export function useProductCommands(
     updateLocation,
     updatePlacements,
     saveProductPlacement,
+    clearProductPlacementPosition,
     removeProductPlacement,
     updateReceivedAt,
     updateNote,
