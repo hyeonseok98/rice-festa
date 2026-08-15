@@ -19,12 +19,6 @@ const MATCH_TIER_SCORE: Record<ProductSearchMatchTier, number> = {
   contains: 2,
 };
 
-const MATCH_TIER_REASON: Record<ProductSearchMatchTier, string> = {
-  exact: '제품명 정확 일치',
-  prefix: '제품명 앞부분 일치',
-  contains: '제품명 포함 일치',
-};
-
 export function normalizeSearchText(value: string): string {
   return value
     .normalize('NFKC')
@@ -38,26 +32,26 @@ function compactSearchText(value: string): string {
   return normalizeSearchText(value).replaceAll(' ', '');
 }
 
-function getProductNameMatchTier(
-  productName: string,
+function getTextMatchTier(
+  value: string,
   normalizedQuery: string,
   compactQuery: string,
 ): ProductSearchMatchTier | null {
-  const normalizedProductName = normalizeSearchText(productName);
-  const compactProductName = compactSearchText(productName);
+  const normalizedValue = normalizeSearchText(value);
+  const compactValue = compactSearchText(value);
 
-  if (normalizedProductName === normalizedQuery || compactProductName === compactQuery) {
+  if (normalizedValue === normalizedQuery || compactValue === compactQuery) {
     return 'exact';
   }
   if (
-    normalizedProductName.startsWith(normalizedQuery) ||
-    compactProductName.startsWith(compactQuery)
+    normalizedValue.startsWith(normalizedQuery) ||
+    compactValue.startsWith(compactQuery)
   ) {
     return 'prefix';
   }
   if (
-    normalizedProductName.includes(normalizedQuery) ||
-    compactProductName.includes(compactQuery)
+    normalizedValue.includes(normalizedQuery) ||
+    compactValue.includes(compactQuery)
   ) {
     return 'contains';
   }
@@ -80,17 +74,43 @@ export function createProductSearchIndex(products: Product[]): ProductSearchInde
 
       return products
         .flatMap<ProductSearchResult>((product) => {
-          const matchTier = getProductNameMatchTier(
-            product.productName,
-            normalizedQuery,
-            compactQuery,
-          );
-          return matchTier
+          const matches = [
+            {
+              fieldLabel: '제품명',
+              fieldPriority: 0,
+              matchTier: getTextMatchTier(
+                product.productName,
+                normalizedQuery,
+                compactQuery,
+              ),
+            },
+            {
+              fieldLabel: '업체명',
+              fieldPriority: 0.1,
+              matchTier: getTextMatchTier(
+                product.companyName,
+                normalizedQuery,
+                compactQuery,
+              ),
+            },
+          ].flatMap((match) => match.matchTier ? [match] : []);
+          const bestMatch = matches.sort(
+            (left, right) =>
+              MATCH_TIER_SCORE[left.matchTier!] + left.fieldPriority -
+              (MATCH_TIER_SCORE[right.matchTier!] + right.fieldPriority),
+          )[0];
+          return bestMatch?.matchTier
             ? [{
                 product,
-                matchTier,
-                matchReason: MATCH_TIER_REASON[matchTier],
-                score: MATCH_TIER_SCORE[matchTier],
+                matchTier: bestMatch.matchTier,
+                matchReason: `${bestMatch.fieldLabel} ${
+                  bestMatch.matchTier === 'exact'
+                    ? '정확 일치'
+                    : bestMatch.matchTier === 'prefix'
+                      ? '앞부분 일치'
+                      : '포함 일치'
+                }`,
+                score: MATCH_TIER_SCORE[bestMatch.matchTier] + bestMatch.fieldPriority,
               }]
             : [];
         })

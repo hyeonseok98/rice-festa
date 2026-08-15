@@ -30,7 +30,8 @@ describe('createProductSearchIndex', () => {
   const products = [
     createProduct('exact', '불소주', '강산소곡주'),
     createProduct('contains', '강산주조 불소주', '강산소곡주'),
-    createProduct('company-only', '소곡', '불소주 양조장'),
+    createProduct('company-product-1', '소곡', '참두원'),
+    createProduct('company-product-2', '청주', '참두원'),
     createProduct('similar', '안동소주일품 21도', '안동소주일품'),
     createProduct('location-only', '청명주', '청명양조장', '불소주-1'),
   ];
@@ -53,10 +54,19 @@ describe('createProductSearchIndex', () => {
     expect(results[0]?.matchTier).toBe('contains');
   });
 
-  it('업체명·보관위치·유사한 제품명은 검색 결과에 포함하지 않는다', () => {
+  it('업체명으로 검색하면 해당 업체의 모든 제품을 반환한다', () => {
+    const results = createProductSearchIndex(products).searchProducts('참두원');
+
+    expect(results.map(({ product }) => product.id)).toEqual([
+      'company-product-1',
+      'company-product-2',
+    ]);
+    expect(results.every(({ matchReason }) => matchReason === '업체명 정확 일치')).toBe(true);
+  });
+
+  it('보관위치와 유사한 제품명은 검색 결과에 포함하지 않는다', () => {
     const results = createProductSearchIndex(products).searchProducts('불소주');
 
-    expect(results.map(({ product }) => product.id)).not.toContain('company-only');
     expect(results.map(({ product }) => product.id)).not.toContain('location-only');
     expect(results.map(({ product }) => product.id)).not.toContain('similar');
   });

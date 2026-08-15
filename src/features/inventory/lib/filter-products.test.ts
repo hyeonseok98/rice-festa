@@ -37,13 +37,13 @@ const products: Product[] = [
 ];
 
 describe('filterProducts', () => {
-  it('제품명에 검색어가 포함된 항목만 검색한다', () => {
+  it('제품명 또는 업체명에 검색어가 포함된 항목을 검색한다', () => {
     expect(filterProducts(products, '생막걸리')).toEqual([products[0]]);
     expect(filterProducts(products, '약과')).toEqual([products[1]]);
+    expect(filterProducts(products, '한강')).toEqual([products[0]]);
   });
 
-  it('업체명·식품유형·위치·비고·초성·오타는 검색하지 않는다', () => {
-    expect(filterProducts(products, '한강')).toEqual([]);
+  it('식품유형·위치·비고·초성·오타는 검색하지 않는다', () => {
     expect(filterProducts(products, '쌀가공')).toEqual([]);
     expect(filterProducts(products, '렉-2')).toEqual([]);
     expect(filterProducts(products, '상온')).toEqual([]);

@@ -33,7 +33,7 @@ export function ProductTable({
   onSelectProduct,
   newProductIds = new Set<string>(),
   emptyTitle = '검색 결과가 없습니다',
-  emptyDescription = '제품명을 다시 확인해주세요.',
+  emptyDescription = '제품명이나 업체명을 다시 확인해주세요.',
 }: ProductTableProps) {
   if (products.length === 0) {
     return (

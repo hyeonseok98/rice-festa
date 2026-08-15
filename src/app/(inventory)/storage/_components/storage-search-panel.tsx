@@ -53,8 +53,8 @@ export function StorageSearchPanel({
             type="text"
             role="searchbox"
             value={query}
-            aria-label="제품명 검색"
-            placeholder="제품명 검색"
+            aria-label="제품명 또는 업체명 검색"
+            placeholder="제품명 또는 업체명 검색"
             className="h-11 w-full rounded-xl border border-border-strong bg-surface pr-10 pl-10 text-sm outline-none focus:border-primary focus:ring-3 focus:ring-primary/20"
             onChange={(event) => onQueryChange(event.target.value)}
           />
