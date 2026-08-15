@@ -48,14 +48,24 @@ export function ProductTable({
     <>
       <div className="hidden overflow-hidden rounded-2xl border border-border bg-surface md:block">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-250 border-collapse text-left text-sm">
+          <table className="w-full min-w-300 table-fixed border-collapse text-left text-sm">
+            <colgroup>
+              <col className="w-[7%]" />
+              <col className="w-[23%]" />
+              <col className="w-[20%]" />
+              <col className="w-[10%]" />
+              <col className="w-[9%]" />
+              <col className="w-[6%]" />
+              <col className="w-[16%]" />
+              <col className="w-[9%]" />
+            </colgroup>
             <thead className="bg-surface-hover text-xs font-bold text-muted-foreground">
               <tr>
                 <th scope="col" className="px-5 py-4">구분</th>
                 <th scope="col" className="px-5 py-4">업체명</th>
                 <th scope="col" className="px-5 py-4">제품명</th>
-                <th scope="col" className="px-5 py-4">식품유형</th>
-                <th scope="col" className="px-5 py-4 text-right">에탄올 함량(%)</th>
+                <th scope="col" className="px-3 py-4">식품유형</th>
+                <th scope="col" className="px-3 py-4 text-right whitespace-nowrap">에탄올 함량(%)</th>
                 <th scope="col" className="px-5 py-4 text-right">수량</th>
                 <th scope="col" className="px-5 py-4">위치</th>
                 <th scope="col" className="px-5 py-4">수령일</th>
@@ -64,8 +74,8 @@ export function ProductTable({
             <tbody>
               {products.map((product) => (
                 <tr key={product.id} className="border-t border-border hover:bg-surface-hover">
-                  <td className="px-5 py-4 text-xs font-bold text-muted-foreground">
-                    {product.division === 'traditional-liquor' ? '우리술' : '쌀가공'}
+                  <td className="px-5 py-4 text-xs font-bold text-muted-foreground whitespace-nowrap">
+                    {product.division === 'traditional-liquor' ? '우리술' : '쌀가공식품'}
                   </td>
                   <td className="px-5 py-4 text-muted-foreground">{product.companyName}</td>
                   <th scope="row" className="px-5 py-4">
@@ -82,8 +92,8 @@ export function ProductTable({
                       ) : null}
                     </button>
                   </th>
-                  <td className="px-5 py-4 text-muted-foreground">{product.foodType}</td>
-                  <td className="px-5 py-4 text-right tabular-nums">
+                  <td className="px-3 py-4 text-muted-foreground whitespace-nowrap">{product.foodType}</td>
+                  <td className="px-3 py-4 text-right tabular-nums whitespace-nowrap">
                     {formatEthanolPercent(product.ethanolPercent)}
                   </td>
                   <td className="px-5 py-4 text-right text-base font-extrabold tabular-nums">
@@ -94,7 +104,7 @@ export function ProductTable({
                       {getLocationText(product)}
                     </span>
                   </td>
-                  <td className="px-5 py-4 text-muted-foreground tabular-nums">{product.receivedAt ?? '-'}</td>
+                  <td className="px-5 py-4 text-muted-foreground tabular-nums whitespace-nowrap">{product.receivedAt ?? '-'}</td>
                 </tr>
               ))}
             </tbody>

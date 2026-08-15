@@ -5,6 +5,8 @@ import { useMemo, useRef, useState } from 'react';
 
 import { filterProductsByStorage } from '@/features/inventory/lib/filter-products-by-storage';
 import { filterProducts } from '@/features/inventory/lib/filter-products';
+import { sortProductsByStoragePlacement } from '@/features/inventory/lib/sort-products-by-storage-placement';
+import type { ProductDivision } from '@/features/inventory/model/product';
 import { sortStorageLocations, type StorageFilter } from '@/features/inventory/model/storage';
 import { useInventorySession } from '@/features/inventory/state/inventory-context';
 import { Button } from '@/shared/ui/button';
@@ -16,12 +18,7 @@ import { ProductSearch } from './product-search';
 import { ProductTable } from './product-table';
 import { WorkbookLoader } from './workbook-loader';
 
-type ProductScope = 'all' | 'new';
-
-interface ProductScopeSelection {
-  comparisonId: number;
-  scope: ProductScope;
-}
+type ProductDivisionFilter = 'all' | ProductDivision;
 
 export function ProductsView() {
   const {
@@ -30,17 +27,13 @@ export function ProductsView() {
     workbookWarnings,
     previousFileName,
     newProductIds,
-    comparisonId,
     loadWorkbook,
     selectWorkbookFile,
   } = useInventorySession();
   const [searchQuery, setSearchQuery] = useState('');
   const [storageFilter, setStorageFilter] = useState<StorageFilter>('all');
+  const [divisionFilter, setDivisionFilter] = useState<ProductDivisionFilter>('all');
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
-  const [productScopeSelection, setProductScopeSelection] = useState<ProductScopeSelection>({
-    comparisonId: -1,
-    scope: 'all',
-  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const newProductIdSet = useMemo(() => new Set(newProductIds), [newProductIds]);
   const availableLocations = useMemo(
@@ -57,18 +50,11 @@ export function ProductsView() {
     return <WorkbookLoader />;
   }
 
-  const productScope: ProductScope =
-    comparisonId !== null && productScopeSelection.comparisonId === comparisonId
-      ? productScopeSelection.scope
-      : previousFileName
-        ? 'new'
-        : 'all';
-  const scopedProducts =
-    productScope === 'new' && previousFileName
-      ? products.filter((product) => newProductIdSet.has(product.id))
-      : products;
-  const locationFilteredProducts = filterProductsByStorage(scopedProducts, storageFilter);
-  const filteredProducts = filterProducts(locationFilteredProducts, searchQuery);
+  const divisionFilteredProducts = divisionFilter === 'all'
+    ? products
+    : products.filter((product) => product.division === divisionFilter);
+  const locationFilteredProducts = filterProductsByStorage(divisionFilteredProducts, storageFilter);
+  const filteredProducts = sortProductsByStoragePlacement(filterProducts(locationFilteredProducts, searchQuery));
   const selectedProduct = products.find((product) => product.id === selectedProductId) ?? null;
   return (
     <>
@@ -142,62 +128,25 @@ export function ProductsView() {
           </div>
         </div>
 
-        {previousFileName && comparisonId !== null ? (
-          <div
-            className="mt-6 flex gap-6 border-b border-border"
-            role="group"
-            aria-label="출품작 목록 구분"
-          >
-            <button
-              type="button"
-              aria-pressed={productScope === 'all'}
-              className={`-mb-px flex min-h-12 items-center gap-2 border-b-3 px-1 text-base font-extrabold focus-visible:rounded focus-visible:outline-3 focus-visible:outline-primary ${
-                productScope === 'all'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-              onClick={() => setProductScopeSelection({ comparisonId, scope: 'all' })}
-            >
-              전체
-              <span className="rounded-full bg-surface-hover px-2 py-0.5 text-xs tabular-nums">
-                {products.length}
-              </span>
-            </button>
-            <button
-              type="button"
-              aria-pressed={productScope === 'new'}
-              className={`-mb-px flex min-h-12 items-center gap-2 border-b-3 px-1 text-base font-extrabold focus-visible:rounded focus-visible:outline-3 focus-visible:outline-primary ${
-                productScope === 'new'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-              onClick={() => setProductScopeSelection({ comparisonId, scope: 'new' })}
-            >
-              신규
-              <span className="rounded-full bg-success-soft px-2 py-0.5 text-xs text-success tabular-nums">
-                {newProductIds.length}
-              </span>
-            </button>
-          </div>
-        ) : null}
+        <div className="mt-6 flex gap-6 border-b border-border" role="group" aria-label="출품작 구분">
+          <DivisionTab label="전체" count={products.length} selected={divisionFilter === 'all'} onClick={() => setDivisionFilter('all')} />
+          <DivisionTab label="우리술" count={products.filter((product) => product.division === 'traditional-liquor').length} selected={divisionFilter === 'traditional-liquor'} onClick={() => setDivisionFilter('traditional-liquor')} />
+          <DivisionTab label="쌀가공식품" count={products.filter((product) => product.division === 'rice-product').length} selected={divisionFilter === 'rice-product'} onClick={() => setDivisionFilter('rice-product')} />
+        </div>
 
-        <div className={previousFileName ? 'mt-4' : 'mt-5'}>
+        <div className="mt-4">
           <ProductTable
             products={filteredProducts}
             newProductIds={newProductIdSet}
             emptyTitle={
               !searchQuery && storageFilter !== 'all'
                 ? '해당 보관위치의 출품작이 없습니다'
-                : productScope === 'new' && !searchQuery
-                  ? '새로 추가된 출품작이 없습니다'
-                  : undefined
+                : undefined
             }
             emptyDescription={
               !searchQuery && storageFilter !== 'all'
                 ? '다른 보관위치를 선택해 주세요.'
-                : productScope === 'new' && !searchQuery
-                  ? '직전 파일과 출품작 구성이 같습니다.'
-                  : undefined
+                : undefined
             }
             onSelectProduct={setSelectedProductId}
           />
@@ -212,4 +161,8 @@ export function ProductsView() {
       />
     </>
   );
+}
+
+function DivisionTab({ label, count, selected, onClick }: { label: string; count: number; selected: boolean; onClick: () => void }) {
+  return <button type="button" aria-pressed={selected} className={`-mb-px flex min-h-12 items-center gap-2 border-b-3 px-1 text-base font-extrabold focus-visible:rounded focus-visible:outline-3 focus-visible:outline-primary ${selected ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`} onClick={onClick}>{label} <span className="rounded-full bg-surface-hover px-2 py-0.5 text-xs tabular-nums">{count}</span></button>;
 }

@@ -83,22 +83,24 @@ export function isStorageFilter(value: string): value is StorageFilter {
   );
 }
 
+export function compareStorageLocations(left: string, right: string): number {
+  const leftCategory = getStorageCategory(left);
+  const rightCategory = getStorageCategory(right);
+  const leftCategoryIndex = leftCategory ? STORAGE_CATEGORIES.indexOf(leftCategory) : STORAGE_CATEGORIES.length;
+  const rightCategoryIndex = rightCategory ? STORAGE_CATEGORIES.indexOf(rightCategory) : STORAGE_CATEGORIES.length;
+  const categoryDifference = leftCategoryIndex - rightCategoryIndex;
+  if (categoryDifference !== 0) return categoryDifference;
+
+  if (leftCategory === null || rightCategory === null) {
+    const labelDifference = left.localeCompare(right, 'ko-KR', { numeric: true });
+    if (labelDifference !== 0) return labelDifference;
+  }
+
+  const leftNumber = Number(left.slice(left.lastIndexOf('-') + 1));
+  const rightNumber = Number(right.slice(right.lastIndexOf('-') + 1));
+  return leftNumber - rightNumber;
+}
+
 export function sortStorageLocations(locations: string[]): string[] {
-  return [...new Set(locations.filter(isStorageLocation))].sort((left, right) => {
-    const leftCategory = getStorageCategory(left);
-    const rightCategory = getStorageCategory(right);
-    const leftCategoryIndex = leftCategory ? STORAGE_CATEGORIES.indexOf(leftCategory) : STORAGE_CATEGORIES.length;
-    const rightCategoryIndex = rightCategory ? STORAGE_CATEGORIES.indexOf(rightCategory) : STORAGE_CATEGORIES.length;
-    const categoryDifference = leftCategoryIndex - rightCategoryIndex;
-    if (categoryDifference !== 0) return categoryDifference;
-
-    if (leftCategory === null || rightCategory === null) {
-      const labelDifference = left.localeCompare(right, 'ko-KR', { numeric: true });
-      if (labelDifference !== 0) return labelDifference;
-    }
-
-    const leftNumber = Number(left.slice(left.lastIndexOf('-') + 1));
-    const rightNumber = Number(right.slice(right.lastIndexOf('-') + 1));
-    return leftNumber - rightNumber;
-  });
+  return [...new Set(locations.filter(isStorageLocation))].sort(compareStorageLocations);
 }
