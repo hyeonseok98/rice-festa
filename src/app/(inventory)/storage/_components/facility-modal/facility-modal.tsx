@@ -1,7 +1,7 @@
 'use client';
 
 import { ArrowLeft, Plus, X } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { findPlacementConflicts } from '@/features/inventory/lib/find-placement-conflicts';
 import type { Product } from '@/features/inventory/model/product';
@@ -46,6 +46,8 @@ export function FacilityModal(props: FacilityModalProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isDropSaving, setIsDropSaving] = useState(false);
+  const [activeDragItem, setActiveDragItem] = useState<FacilityPlacementDragItem | null>(null);
+  const dropSavingRef = useRef(false);
   const [listScrollRequest, setListScrollRequest] = useState(0);
   const facilityPlacements = useMemo(() => getFacilityProductPlacements(products, facility.id), [facility.id, products]);
   const facilityProducts = useMemo(() => [...new Map(facilityPlacements.map((item) => [item.product.id, item.product])).values()], [facilityPlacements]);
@@ -91,7 +93,7 @@ export function FacilityModal(props: FacilityModalProps) {
     item: FacilityPlacementDragItem,
     target: FacilityPlacementDropTarget,
   ) => {
-    if (isDropSaving || state.kind !== 'browse') return;
+    if (dropSavingRef.current || state.kind !== 'browse') return;
     const product = products.find((candidate) => candidate.id === item.productId);
     if (!product) {
       window.alert('이동할 제품을 찾을 수 없습니다.');
@@ -106,18 +108,21 @@ export function FacilityModal(props: FacilityModalProps) {
       });
       if (droppedConflicts.length && !window.confirm(`같은 자리에 ${droppedConflicts.map((conflict) => conflict.productName).join(', ')} 제품이 있습니다. 그래도 배치할까요?`)) return;
 
+      dropSavingRef.current = true;
       setIsDropSaving(true);
       await props.onSavePlacement(product.id, droppedMutation);
       props.onBrowse(facility.id, product.id);
     } catch (error: unknown) {
       window.alert(error instanceof Error ? error.message : '드래그한 위치를 저장하지 못했습니다.');
     } finally {
+      dropSavingRef.current = false;
       setIsDropSaving(false);
     }
   };
 
   const clearPlacementPosition = async (productId: string, placementId: string) => {
-    if (isDropSaving || state.kind !== 'browse') return;
+    if (dropSavingRef.current || state.kind !== 'browse') return;
+    dropSavingRef.current = true;
     setIsDropSaving(true);
     try {
       await props.onClearPlacementPosition(productId, placementId);
@@ -125,6 +130,7 @@ export function FacilityModal(props: FacilityModalProps) {
     } catch (error: unknown) {
       window.alert(error instanceof Error ? error.message : '자리 배치를 해제하지 못했습니다.');
     } finally {
+      dropSavingRef.current = false;
       setIsDropSaving(false);
     }
   };
@@ -140,8 +146,8 @@ export function FacilityModal(props: FacilityModalProps) {
       </header>
 
       <div className="grid min-h-0 flex-1 grid-rows-[minmax(280px,1fr)_minmax(250px,0.8fr)] overflow-hidden md:grid-cols-[minmax(0,1fr)_340px] md:grid-rows-1">
-        <FacilityShelfView facility={facility} placements={facilityPlacements} focusedProductId={focusedProductId} draft={state.kind === 'place' || state.kind === 'edit' ? state.draft : null} isDropSaving={isDropSaving || state.kind !== 'browse'} onSelectProduct={(productId) => { setListScrollRequest((current) => current + 1); props.onBrowse(facility.id, productId); }} onSelectSlot={state.kind === 'place' || state.kind === 'edit' ? props.onSelectSlot : undefined} onDropPlacement={(item, target) => void dropPlacement(item, target)} onClearPlacement={(productId, placementId) => void clearPlacementPosition(productId, placementId)} />
-        {state.kind === 'pick' ? <FacilityProductPicker products={products} onSelectProduct={(productId) => props.onStartPlacement(facility.id, productId)} /> : state.kind === 'place' || state.kind === 'edit' ? (editingProduct ? <PlacementEditor product={editingProduct} facility={facility} draft={state.draft} conflicts={conflicts} errorMessage={errorMessage} onDraftChange={props.onDraftChange} /> : null) : <FacilityProductList key={listScrollRequest} facility={facility} products={products} focusedProductId={focusedProductId} isDropSaving={isDropSaving} onPickProduct={() => props.onPickProduct(facility.id)} onStartPlacement={(productId) => props.onStartPlacement(facility.id, productId)} onFocusProduct={(productId) => props.onBrowse(facility.id, productId)} onEditPlacement={editPlacement} onRemovePlacement={(productId, placementId) => void removePlacement(productId, placementId)} onUpdateNote={props.onUpdateNote} />}
+        <FacilityShelfView key={facility.id} facility={facility} placements={facilityPlacements} focusedProductId={focusedProductId} draft={state.kind === 'place' || state.kind === 'edit' ? state.draft : null} isDropSaving={isDropSaving || state.kind !== 'browse'} activeDragItem={activeDragItem} onBeginDrag={setActiveDragItem} onEndDrag={() => setActiveDragItem(null)} onSelectProduct={(productId) => { setListScrollRequest((current) => current + 1); props.onBrowse(facility.id, productId); }} onSelectSlot={state.kind === 'place' || state.kind === 'edit' ? props.onSelectSlot : undefined} onDropPlacement={(item, target) => void dropPlacement(item, target)} onClearPlacement={(productId, placementId) => void clearPlacementPosition(productId, placementId)} />
+        {state.kind === 'pick' ? <FacilityProductPicker products={products} onSelectProduct={(productId) => props.onStartPlacement(facility.id, productId)} /> : state.kind === 'place' || state.kind === 'edit' ? (editingProduct ? <PlacementEditor product={editingProduct} facility={facility} draft={state.draft} conflicts={conflicts} errorMessage={errorMessage} onDraftChange={props.onDraftChange} /> : null) : <FacilityProductList key={listScrollRequest} facility={facility} products={products} focusedProductId={focusedProductId} isDropSaving={isDropSaving} onBeginDrag={setActiveDragItem} onEndDrag={() => setActiveDragItem(null)} onPickProduct={() => props.onPickProduct(facility.id)} onStartPlacement={(productId) => props.onStartPlacement(facility.id, productId)} onFocusProduct={(productId) => props.onBrowse(facility.id, productId)} onEditPlacement={editPlacement} onRemovePlacement={(productId, placementId) => void removePlacement(productId, placementId)} onUpdateNote={props.onUpdateNote} />}
       </div>
 
       {state.kind === 'place' || state.kind === 'edit' ? <footer className="flex h-17 shrink-0 items-center justify-end gap-2 border-t border-border bg-surface px-4 md:px-5"><button type="button" className="min-h-10 rounded-lg border border-border-strong px-4 text-sm font-bold hover:bg-surface-hover focus-visible:outline-3 focus-visible:outline-primary" onClick={() => props.onBrowse(facility.id, editingProduct?.id)}>취소</button><button type="button" disabled={isSaving || !editingProduct || !mutation} className="min-h-10 rounded-lg bg-primary px-5 text-sm font-bold text-white hover:bg-primary-hover focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50" onClick={() => void savePlacement()}>{isSaving ? '반영 중…' : '배치 적용'}</button></footer> : null}

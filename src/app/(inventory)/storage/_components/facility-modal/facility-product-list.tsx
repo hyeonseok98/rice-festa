@@ -27,6 +27,8 @@ interface FacilityProductListProps {
   products: Product[];
   focusedProductId: string | null;
   isDropSaving: boolean;
+  onBeginDrag: (item: FacilityPlacementDragItem) => void;
+  onEndDrag: () => void;
   onPickProduct: () => void;
   onStartPlacement: (productId: string) => void;
   onEditPlacement: (productId: string, placementId: string) => void;
@@ -35,7 +37,7 @@ interface FacilityProductListProps {
   onFocusProduct: (productId: string) => void;
 }
 
-export function FacilityProductList({ facility, products, focusedProductId, isDropSaving, onPickProduct, onStartPlacement, onEditPlacement, onRemovePlacement, onUpdateNote, onFocusProduct }: FacilityProductListProps) {
+export function FacilityProductList({ facility, products, focusedProductId, isDropSaving, onBeginDrag, onEndDrag, onPickProduct, onStartPlacement, onEditPlacement, onRemovePlacement, onUpdateNote, onFocusProduct }: FacilityProductListProps) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<FacilityListFilter>('all');
   const listViewportRef = useRef<HTMLDivElement>(null);
@@ -68,6 +70,7 @@ export function FacilityProductList({ facility, products, focusedProductId, isDr
       FACILITY_PLACEMENT_DRAG_TYPE,
       serializeFacilityPlacementDragItem(item),
     );
+    onBeginDrag(item);
   };
 
   useEffect(() => {
@@ -116,13 +119,10 @@ export function FacilityProductList({ facility, products, focusedProductId, isDr
                 <li
                   key={product.id}
                   ref={(node) => { if (node) productCardRefs.current.set(product.id, node); else productCardRefs.current.delete(product.id); }}
-                  draggable={!isDropSaving}
-                  className={`cursor-grab rounded-lg border p-3 active:cursor-grabbing ${focusedProductId === product.id ? 'border-primary bg-primary-soft' : 'border-border'}`}
-                  title="선반으로 드래그해 새 위치 추가"
-                  onDragStart={(event) => startDrag(event, cardDragItem)}
+                  className={`rounded-lg border p-3 ${focusedProductId === product.id ? 'border-primary bg-primary-soft' : 'border-border'}`}
                 >
                   <div className="flex items-start gap-2">
-                    <GripVertical className="mt-1 shrink-0 text-muted-foreground" aria-hidden="true" size={15} />
+                    <span draggable={!isDropSaving} aria-label={`${product.productName} 드래그`} title="선반으로 드래그" className="mt-0.5 flex size-6 shrink-0 cursor-grab items-center justify-center rounded text-muted-foreground active:cursor-grabbing" onDragStart={(event) => startDrag(event, cardDragItem)} onDragEnd={onEndDrag}><GripVertical aria-hidden="true" size={15} /></span>
                     <button type="button" className="min-w-0 flex-1 text-left focus-visible:outline-3 focus-visible:outline-primary" onClick={() => isNewPlacement ? onStartPlacement(product.id) : onFocusProduct(product.id)}><span className="block truncate text-[11px] text-muted-foreground">{product.companyName}</span><strong className="mt-0.5 block truncate text-sm">{product.productName}</strong></button>
                     <div className="flex shrink-0 items-center gap-1">
                       {!isNewPlacement ? <span className={`rounded px-1.5 py-1 text-[10px] font-bold ${status === 'complete' ? 'bg-success-soft text-success' : 'bg-surface-hover text-muted-foreground'}`}>{status === 'complete' ? '배치완료' : '배치전'}</span> : null}
@@ -134,8 +134,8 @@ export function FacilityProductList({ facility, products, focusedProductId, isDr
                       {placements.map((placement) => {
                         const isPositioned = hasClearFacilityPosition(placement, facility);
                         return (
-                          <div key={placement.id} draggable={!isDropSaving} className="flex cursor-grab items-center gap-1 rounded-lg bg-surface px-1 py-1.5 text-[11px] active:cursor-grabbing" title="선반으로 드래그해 위치 이동" onDragStart={(event) => { event.stopPropagation(); startDrag(event, { productId: product.id, placementId: placement.id }); }}>
-                            <GripVertical className="shrink-0 text-muted-foreground" aria-hidden="true" size={13} />
+                          <div key={placement.id} className="flex items-center gap-1 rounded-lg bg-surface px-1 py-1.5 text-[11px]">
+                            <span draggable={!isDropSaving} aria-label={`${product.productName} 해당 위치 드래그`} title="선반으로 드래그해 위치 이동" className="flex size-6 shrink-0 cursor-grab items-center justify-center rounded text-muted-foreground active:cursor-grabbing" onDragStart={(event) => { event.stopPropagation(); startDrag(event, { productId: product.id, placementId: placement.id }); }} onDragEnd={onEndDrag}><GripVertical aria-hidden="true" size={13} /></span>
                             <MapPin className={`shrink-0 ${isPositioned ? 'text-primary' : 'text-muted-foreground'}`} aria-hidden="true" size={13} />
                             <span className="min-w-0 flex-1 truncate">{isPositioned ? describeStoragePlacement(placement, facility) : `${facility.label ?? '설비'} · 배치전`}</span>
                             <button type="button" aria-label="위치 수정" title="위치 수정" className="flex size-7 items-center justify-center rounded-md hover:bg-surface-hover focus-visible:outline-3 focus-visible:outline-primary" onClick={() => onEditPlacement(product.id, placement.id)}><Pencil aria-hidden="true" size={13} /></button>

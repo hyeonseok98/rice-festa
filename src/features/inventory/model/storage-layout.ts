@@ -82,7 +82,6 @@ function createDefaultStorageFacilities(): StorageFacility[] {
     createStorageFacility('FRIDGE_LOW_06', 'fridge', '저도주-6', { x: 1160, y: 28, width: 180 }),
     createStorageFacility('RACK_04', 'rack', '렉-4', { x: 28, y: 180 }),
     createStorageFacility('RACK_03', 'rack', '렉-3', { x: 28, y: 360 }),
-    createStorageFacility('RACK_02', 'rack', '렉-2', { x: 28, y: 540 }),
     createStorageFacility('RACK_01', 'rack', '렉-1', { x: 28, y: 720 }),
   ];
 

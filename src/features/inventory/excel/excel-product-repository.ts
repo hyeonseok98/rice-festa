@@ -251,7 +251,10 @@ export class ExcelProductRepository implements ProductRepository {
         }
 
         const productName = getCellValue(worksheet, schema.columns.productName, rowNumber);
-        if (typeof productName !== 'string' || !productName.trim()) continue;
+        if (
+          (typeof productName !== 'string' && typeof productName !== 'number') ||
+          !String(productName).trim()
+        ) continue;
 
         const productId = createProductId(schema.sheetName, rowNumber);
         const result = parseProductRow({

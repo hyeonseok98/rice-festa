@@ -1,7 +1,7 @@
 'use client';
 
-import { Layers3, X } from 'lucide-react';
-import { useEffect, useRef, useState, type DragEvent } from 'react';
+import { GripVertical, Layers3, X } from 'lucide-react';
+import { useState, type DragEvent } from 'react';
 
 import type { Product } from '@/features/inventory/model/product';
 import type { StorageFacility, StorageLevel } from '@/features/inventory/model/storage';
@@ -23,6 +23,9 @@ interface FacilityShelfViewProps {
   focusedProductId: string | null;
   draft: PlacementDraft | null;
   isDropSaving: boolean;
+  activeDragItem: FacilityPlacementDragItem | null;
+  onBeginDrag: (item: FacilityPlacementDragItem) => void;
+  onEndDrag: () => void;
   onSelectProduct: (productId: string) => void;
   onSelectSlot?: (levelNumber: number, slotNumber: number) => void;
   onDropPlacement: (
@@ -34,41 +37,24 @@ interface FacilityShelfViewProps {
 
 const RACK_SLOT_PAGE_SIZE = 7;
 
-export function FacilityShelfView({ facility, placements, focusedProductId, draft, isDropSaving, onSelectProduct, onSelectSlot, onDropPlacement, onClearPlacement }: FacilityShelfViewProps) {
+function usesRackSlotPages(facility: StorageFacility): boolean {
+  return facility.type === 'rack' || facility.label?.startsWith('렉-') === true;
+}
+
+export function FacilityShelfView({ facility, placements, focusedProductId, draft, isDropSaving, activeDragItem, onBeginDrag, onEndDrag, onSelectProduct, onSelectSlot, onDropPlacement, onClearPlacement }: FacilityShelfViewProps) {
   const needsScroll = facility.levels.length > 5;
   const maximumSlotCount = Math.max(...facility.levels.map((level) => level.slotCount));
-  const slotPageCount = facility.type === 'rack'
+  const usesSlotPages = usesRackSlotPages(facility);
+  const slotPageCount = usesSlotPages
     ? Math.max(1, Math.ceil(maximumSlotCount / RACK_SLOT_PAGE_SIZE))
     : 1;
   const [slotPage, setSlotPage] = useState(0);
   const activeSlotPage = Math.min(slotPage, slotPageCount - 1);
   const visibleSlotStart = activeSlotPage * RACK_SLOT_PAGE_SIZE + 1;
-  const visibleSlotEnd = facility.type === 'rack'
+  const visibleSlotEnd = usesSlotPages
     ? Math.min(maximumSlotCount, visibleSlotStart + RACK_SLOT_PAGE_SIZE - 1)
     : maximumSlotCount;
   const hasSlotPages = slotPageCount > 1;
-  const lastAutoPageTargetRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    setSlotPage(0);
-    lastAutoPageTargetRef.current = null;
-  }, [facility.id]);
-
-  useEffect(() => {
-    if (!focusedProductId || slotPageCount === 1) {
-      lastAutoPageTargetRef.current = null;
-      return;
-    }
-    const autoPageTarget = `${facility.id}:${focusedProductId}`;
-    if (lastAutoPageTargetRef.current === autoPageTarget) return;
-    lastAutoPageTargetRef.current = autoPageTarget;
-    const focusedPlacement = placements.find(({ product, placement }) =>
-      product.id === focusedProductId && placement.slotStart !== null,
-    );
-    if (focusedPlacement?.placement.slotStart) {
-      setSlotPage(Math.floor((focusedPlacement.placement.slotStart - 1) / RACK_SLOT_PAGE_SIZE));
-    }
-  }, [facility.id, focusedProductId, placements, slotPageCount]);
 
   return (
     <div className={`min-h-0 bg-[#eef1f4] p-3 md:p-5 ${needsScroll ? 'overflow-y-auto' : 'overflow-hidden'} ${hasSlotPages ? 'flex flex-col' : ''}`}>
@@ -89,13 +75,17 @@ export function FacilityShelfView({ facility, placements, focusedProductId, draf
             levelCount={facility.levels.filter((candidate) => candidate.order > 0).length}
             visibleSlotStart={visibleSlotStart}
             visibleSlotEnd={visibleSlotEnd}
+            fixedGridSlotCount={usesSlotPages ? RACK_SLOT_PAGE_SIZE : null}
             placements={placements.filter((item) => item.placement.levelNumber === level.order)}
             focusedProductId={focusedProductId}
             draft={draft?.levelNumber === level.order ? draft : null}
             isDropSaving={isDropSaving}
+            activeDragItem={activeDragItem}
+            onBeginDrag={onBeginDrag}
+            onEndDrag={onEndDrag}
             onSelectProduct={onSelectProduct}
             onSelectSlot={onSelectSlot}
-            onDropPlacement={onDropPlacement}
+            onDropPlacement={(item, target) => { onEndDrag(); onDropPlacement(item, target); }}
             onClearPlacement={onClearPlacement}
           />
         ))}
@@ -104,11 +94,12 @@ export function FacilityShelfView({ facility, placements, focusedProductId, draf
   );
 }
 
-function FacilityLevelRow({ level, levelCount, visibleSlotStart, visibleSlotEnd, placements, focusedProductId, draft, isDropSaving, onSelectProduct, onSelectSlot, onDropPlacement, onClearPlacement }: { level: StorageLevel; levelCount: number; visibleSlotStart: number; visibleSlotEnd: number; placements: FacilityProductPlacement[]; focusedProductId: string | null; draft: PlacementDraft | null; isDropSaving: boolean; onSelectProduct: (productId: string) => void; onSelectSlot?: (levelNumber: number, slotNumber: number) => void; onDropPlacement: (item: FacilityPlacementDragItem, target: FacilityPlacementDropTarget) => void; onClearPlacement: (productId: string, placementId: string) => void }) {
+function FacilityLevelRow({ level, levelCount, visibleSlotStart, visibleSlotEnd, fixedGridSlotCount, placements, focusedProductId, draft, isDropSaving, activeDragItem, onBeginDrag, onEndDrag, onSelectProduct, onSelectSlot, onDropPlacement, onClearPlacement }: { level: StorageLevel; levelCount: number; visibleSlotStart: number; visibleSlotEnd: number; fixedGridSlotCount: number | null; placements: FacilityProductPlacement[]; focusedProductId: string | null; draft: PlacementDraft | null; isDropSaving: boolean; activeDragItem: FacilityPlacementDragItem | null; onBeginDrag: (item: FacilityPlacementDragItem) => void; onEndDrag: () => void; onSelectProduct: (productId: string) => void; onSelectSlot?: (levelNumber: number, slotNumber: number) => void; onDropPlacement: (item: FacilityPlacementDragItem, target: FacilityPlacementDropTarget) => void; onClearPlacement: (productId: string, placementId: string) => void }) {
   const behind = placements.filter((item) => item.placement.isBehind);
   const front = placements.filter((item) => !item.placement.isBehind);
   const levelVisibleSlotEnd = Math.min(level.slotCount, visibleSlotEnd);
   const hasVisibleSlots = visibleSlotStart <= levelVisibleSlotEnd;
+  const gridSlotCount = fixedGridSlotCount ?? Math.max(1, levelVisibleSlotEnd - visibleSlotStart + 1);
   return (
     <section className="relative flex min-h-18 flex-1 flex-col border-b-6 border-[#626d79] bg-surface px-2 pt-6 pb-1.5 md:min-h-22">
       <span className="absolute top-1 left-2 text-[11px] font-extrabold text-muted-foreground">{getLevelLabel(level, levelCount)} · 왼쪽부터 {level.slotCount}자리</span>
@@ -116,15 +107,15 @@ function FacilityLevelRow({ level, levelCount, visibleSlotStart, visibleSlotEnd,
       {hasVisibleSlots && (behind.length || draft?.isBehind) ? (
         <div className="relative mb-1 min-h-8 rounded border border-dashed border-border-strong bg-[#e8edf2]">
           <span className="absolute top-0.5 right-1 z-20 flex items-center gap-1 text-[9px] font-bold text-muted-foreground"><Layers3 aria-hidden="true" size={10} />뒤쪽</span>
-          <SlotGrid level={level} visibleSlotStart={visibleSlotStart} visibleSlotEnd={levelVisibleSlotEnd} placements={behind} focusedProductId={focusedProductId} draft={draft?.isBehind ? draft : null} isBehind isDropSaving={isDropSaving} onSelectProduct={onSelectProduct} onSelectSlot={onSelectSlot} onDropPlacement={onDropPlacement} onClearPlacement={onClearPlacement} compact />
+          <SlotGrid level={level} visibleSlotStart={visibleSlotStart} visibleSlotEnd={levelVisibleSlotEnd} gridSlotCount={gridSlotCount} placements={behind} focusedProductId={focusedProductId} draft={draft?.isBehind ? draft : null} isBehind isDropSaving={isDropSaving} activeDragItem={activeDragItem} onBeginDrag={onBeginDrag} onEndDrag={onEndDrag} onSelectProduct={onSelectProduct} onSelectSlot={onSelectSlot} onDropPlacement={onDropPlacement} onClearPlacement={onClearPlacement} compact />
         </div>
       ) : null}
-      {hasVisibleSlots ? <SlotGrid level={level} visibleSlotStart={visibleSlotStart} visibleSlotEnd={levelVisibleSlotEnd} placements={front} focusedProductId={focusedProductId} draft={draft && !draft.isBehind ? draft : null} isBehind={false} isDropSaving={isDropSaving} onSelectProduct={onSelectProduct} onSelectSlot={onSelectSlot} onDropPlacement={onDropPlacement} onClearPlacement={onClearPlacement} /> : null}
+      {hasVisibleSlots ? <SlotGrid level={level} visibleSlotStart={visibleSlotStart} visibleSlotEnd={levelVisibleSlotEnd} gridSlotCount={gridSlotCount} placements={front} focusedProductId={focusedProductId} draft={draft && !draft.isBehind ? draft : null} isBehind={false} isDropSaving={isDropSaving} activeDragItem={activeDragItem} onBeginDrag={onBeginDrag} onEndDrag={onEndDrag} onSelectProduct={onSelectProduct} onSelectSlot={onSelectSlot} onDropPlacement={onDropPlacement} onClearPlacement={onClearPlacement} /> : null}
     </section>
   );
 }
 
-function SlotGrid({ level, visibleSlotStart, visibleSlotEnd, placements, focusedProductId, draft, isBehind, isDropSaving, onSelectProduct, onSelectSlot, onDropPlacement, onClearPlacement, compact = false }: { level: StorageLevel; visibleSlotStart: number; visibleSlotEnd: number; placements: FacilityProductPlacement[]; focusedProductId: string | null; draft: PlacementDraft | null; isBehind: boolean; isDropSaving: boolean; onSelectProduct: (productId: string) => void; onSelectSlot?: (levelNumber: number, slotNumber: number) => void; onDropPlacement: (item: FacilityPlacementDragItem, target: FacilityPlacementDropTarget) => void; onClearPlacement: (productId: string, placementId: string) => void; compact?: boolean }) {
+function SlotGrid({ level, visibleSlotStart, visibleSlotEnd, gridSlotCount, placements, focusedProductId, draft, isBehind, isDropSaving, activeDragItem, onBeginDrag, onEndDrag, onSelectProduct, onSelectSlot, onDropPlacement, onClearPlacement, compact = false }: { level: StorageLevel; visibleSlotStart: number; visibleSlotEnd: number; gridSlotCount: number; placements: FacilityProductPlacement[]; focusedProductId: string | null; draft: PlacementDraft | null; isBehind: boolean; isDropSaving: boolean; activeDragItem: FacilityPlacementDragItem | null; onBeginDrag: (item: FacilityPlacementDragItem) => void; onEndDrag: () => void; onSelectProduct: (productId: string) => void; onSelectSlot?: (levelNumber: number, slotNumber: number) => void; onDropPlacement: (item: FacilityPlacementDragItem, target: FacilityPlacementDropTarget) => void; onClearPlacement: (productId: string, placementId: string) => void; compact?: boolean }) {
   const [dropSlot, setDropSlot] = useState<number | null>(null);
   const visibleSlotCount = visibleSlotEnd - visibleSlotStart + 1;
   const visiblePlacements = placements.filter(({ placement }) => {
@@ -133,56 +124,64 @@ function SlotGrid({ level, visibleSlotStart, visibleSlotEnd, placements, focused
     return placementStart <= visibleSlotEnd && placementEnd >= visibleSlotStart;
   });
 
-  const getSlotFromPointer = (event: DragEvent<HTMLDivElement>): number => {
-    const bounds = event.currentTarget.getBoundingClientRect();
-    const relativeX = Math.max(0, Math.min(bounds.width - 1, event.clientX - bounds.left));
-    return Math.min(visibleSlotEnd, visibleSlotStart + Math.floor(relativeX / (bounds.width / visibleSlotCount)));
-  };
+  const acceptsPlacement = (event: DragEvent<HTMLElement>) =>
+    !isDropSaving && (
+      activeDragItem !== null || event.dataTransfer.types.includes(FACILITY_PLACEMENT_DRAG_TYPE)
+    );
 
-  const acceptsPlacement = (event: DragEvent<HTMLDivElement>) =>
-    !isDropSaving && event.dataTransfer.types.includes(FACILITY_PLACEMENT_DRAG_TYPE);
-
-  const dragOver = (event: DragEvent<HTMLDivElement>) => {
+  const dragOverSlot = (event: DragEvent<HTMLElement>, slotNumber: number) => {
     if (!acceptsPlacement(event)) return;
     event.preventDefault();
-    event.dataTransfer.dropEffect = event.dataTransfer.effectAllowed === 'copy' ? 'copy' : 'move';
-    setDropSlot(getSlotFromPointer(event));
+    const dragItem = activeDragItem;
+    event.dataTransfer.dropEffect = dragItem
+      ? dragItem.placementId === null ? 'copy' : 'move'
+      : event.dataTransfer.effectAllowed === 'copy' ? 'copy' : 'move';
+    setDropSlot(slotNumber);
   };
 
-  const dropPlacement = (event: DragEvent<HTMLDivElement>) => {
+  const dropPlacement = (event: DragEvent<HTMLElement>, slotNumber: number) => {
     if (!acceptsPlacement(event)) return;
     event.preventDefault();
-    const item = parseFacilityPlacementDragItem(event.dataTransfer.getData(FACILITY_PLACEMENT_DRAG_TYPE));
-    const slotNumber = getSlotFromPointer(event);
+    event.stopPropagation();
+    const item = activeDragItem ?? parseFacilityPlacementDragItem(
+      event.dataTransfer.getData(FACILITY_PLACEMENT_DRAG_TYPE),
+    );
     setDropSlot(null);
     if (item) onDropPlacement(item, { levelNumber: level.order, slotNumber, isBehind });
   };
 
   return (
-    <div className={`relative grid min-h-0 flex-1 ${compact ? 'h-8' : ''}`} style={{ gridTemplateColumns: `repeat(${visibleSlotCount}, minmax(0, 1fr))` }} onDragOver={dragOver} onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropSlot(null); }} onDrop={dropPlacement}>
+    <div className={`relative grid min-h-0 flex-1 ${compact ? 'h-8' : ''}`} style={{ gridTemplateColumns: `repeat(${gridSlotCount}, minmax(0, 1fr))` }} onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropSlot(null); }}>
       {Array.from({ length: visibleSlotCount }, (_, index) => {
         const slot = visibleSlotStart + index;
         const selected = Boolean(draft && slot >= draft.slotStart && slot <= draft.slotEnd);
         const dropTarget = dropSlot === slot;
         const className = `flex min-w-0 items-center justify-center border-y border-l border-dashed border-border-strong text-[11px] font-semibold last:border-r ${dropTarget ? 'bg-success-soft text-success ring-3 ring-inset ring-success' : selected ? 'bg-primary-soft text-primary' : 'bg-surface text-muted-foreground'}`;
         if (!onSelectSlot) {
-          return <div key={slot} aria-label={`왼쪽에서 ${slot}번째 자리`} className={className}>{compact ? '' : slot}</div>;
+          return <div key={slot} aria-label={`왼쪽에서 ${slot}번째 자리`} className={className} onDragEnter={(event) => dragOverSlot(event, slot)} onDragOver={(event) => dragOverSlot(event, slot)} onDrop={(event) => dropPlacement(event, slot)}>{compact ? '' : slot}</div>;
         }
-        return <button key={slot} type="button" aria-label={`왼쪽에서 ${slot}번째 자리`} aria-pressed={selected} className={`${className} hover:bg-surface-hover focus-visible:z-30 focus-visible:outline-3 focus-visible:outline-primary`} onClick={() => onSelectSlot(level.order, slot)}>{compact ? '' : slot}</button>;
+        return <button key={slot} type="button" aria-label={`왼쪽에서 ${slot}번째 자리`} aria-pressed={selected} className={`${className} hover:bg-surface-hover focus-visible:z-30 focus-visible:outline-3 focus-visible:outline-primary`} onDragEnter={(event) => dragOverSlot(event, slot)} onDragOver={(event) => dragOverSlot(event, slot)} onDrop={(event) => dropPlacement(event, slot)} onClick={() => onSelectSlot(level.order, slot)}>{compact ? '' : slot}</button>;
       })}
-      <div className="pointer-events-none absolute inset-0 grid" style={{ gridTemplateColumns: `repeat(${visibleSlotCount}, minmax(0, 1fr))` }}>
-        {visiblePlacements.map(({ product, placement }) => <PlacementBlock key={`${product.id}-${placement.id}`} product={product} placement={placement} visibleSlotStart={visibleSlotStart} visibleSlotEnd={visibleSlotEnd} focused={focusedProductId === product.id} dragDisabled={isDropSaving} onSelect={() => onSelectProduct(product.id)} onClear={() => onClearPlacement(product.id, placement.id)} />)}
+      <div className="pointer-events-none absolute inset-0 grid" style={{ gridTemplateColumns: `repeat(${gridSlotCount}, minmax(0, 1fr))` }}>
+        {visiblePlacements.map(({ product, placement }) => <PlacementBlock key={`${product.id}-${placement.id}`} product={product} placement={placement} visibleSlotStart={visibleSlotStart} visibleSlotEnd={visibleSlotEnd} focused={focusedProductId === product.id} dragDisabled={isDropSaving} dragActive={activeDragItem !== null} onBeginDrag={onBeginDrag} onEndDrag={onEndDrag} onSelect={() => onSelectProduct(product.id)} onClear={() => onClearPlacement(product.id, placement.id)} />)}
       </div>
     </div>
   );
 }
 
-function PlacementBlock({ product, placement, visibleSlotStart, visibleSlotEnd, focused, dragDisabled, onSelect, onClear }: { product: Product; placement: StoragePlacement; visibleSlotStart: number; visibleSlotEnd: number; focused: boolean; dragDisabled: boolean; onSelect: () => void; onClear: () => void }) {
+function PlacementBlock({ product, placement, visibleSlotStart, visibleSlotEnd, focused, dragDisabled, dragActive, onBeginDrag, onEndDrag, onSelect, onClear }: { product: Product; placement: StoragePlacement; visibleSlotStart: number; visibleSlotEnd: number; focused: boolean; dragDisabled: boolean; dragActive: boolean; onBeginDrag: (item: FacilityPlacementDragItem) => void; onEndDrag: () => void; onSelect: () => void; onClear: () => void }) {
   const placementStart = placement.slotStart ?? visibleSlotStart;
   const placementEnd = placement.slotEnd ?? placementStart;
   const start = Math.max(placementStart, visibleSlotStart) - visibleSlotStart + 1;
   const end = Math.min(Math.max(placementEnd, placementStart), visibleSlotEnd) - visibleSlotStart + 1;
-  return <div className={`pointer-events-auto relative z-10 m-1 min-w-0 self-stretch overflow-hidden rounded-md border shadow-sm ${focused ? 'border-primary bg-primary text-white ring-3 ring-primary/20' : 'border-[#9a7a4c] bg-[#fff7e6] hover:border-primary'}`} style={{ gridColumn: `${start} / ${end + 1}`, gridRow: 1 }}><button type="button" draggable={!dragDisabled} className="h-full w-full min-w-0 cursor-grab px-1.5 pr-7 text-left active:cursor-grabbing focus-visible:outline-3 focus-visible:outline-primary" title={`${product.companyName} · ${product.productName} · 드래그해 위치 이동`} onDragStart={(event) => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData(FACILITY_PLACEMENT_DRAG_TYPE, serializeFacilityPlacementDragItem({ productId: product.id, placementId: placement.id })); }} onClick={onSelect}><strong className="line-clamp-3 [overflow-wrap:anywhere] text-[13px] leading-4">{product.productName}</strong><span className={`block truncate text-[9px] ${focused ? 'text-white/80' : 'text-muted-foreground'}`}>{placement.purpose === 'sample' ? '샘플' : placement.purpose === 'box' ? '박스' : product.companyName}</span></button><button type="button" disabled={dragDisabled} aria-label={`${product.productName} 자리 배치 해제`} title="자리 배치 해제" className={`absolute top-1 right-1 flex size-5 items-center justify-center rounded focus-visible:outline-2 focus-visible:outline-offset-1 ${focused ? 'text-white/80 hover:bg-white/15 hover:text-white focus-visible:outline-white' : 'text-muted-foreground hover:bg-danger-soft hover:text-danger focus-visible:outline-danger'}`} onClick={onClear}><X aria-hidden="true" size={12} /></button></div>;
+  const dragItem = { productId: product.id, placementId: placement.id };
+  return (
+    <div className={`${dragActive ? 'pointer-events-none' : 'pointer-events-auto'} relative z-10 m-1 min-w-0 self-stretch overflow-hidden rounded-md border shadow-sm ${focused ? 'border-primary bg-primary text-white ring-3 ring-primary/20' : 'border-[#9a7a4c] bg-[#fff7e6] hover:border-primary'}`} style={{ gridColumn: `${start} / ${end + 1}`, gridRow: 1 }}>
+      <span draggable={!dragDisabled} aria-label={`${product.productName} 위치 이동`} title="드래그해 위치 이동" className="absolute top-1 left-1 z-20 flex size-5 cursor-grab items-center justify-center rounded active:cursor-grabbing" onDragStart={(event) => { event.stopPropagation(); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData(FACILITY_PLACEMENT_DRAG_TYPE, serializeFacilityPlacementDragItem(dragItem)); onBeginDrag(dragItem); }} onDragEnd={onEndDrag}><GripVertical aria-hidden="true" size={12} /></span>
+      <button type="button" className="h-full w-full min-w-0 px-7 text-left focus-visible:outline-3 focus-visible:outline-primary" title={`${product.companyName} · ${product.productName}`} onClick={onSelect}><strong className="line-clamp-3 [overflow-wrap:anywhere] text-[13px] leading-4">{product.productName}</strong><span className={`block truncate text-[9px] ${focused ? 'text-white/80' : 'text-muted-foreground'}`}>{placement.purpose === 'sample' ? '샘플' : placement.purpose === 'box' ? '박스' : product.companyName}</span></button>
+      <button type="button" disabled={dragDisabled} aria-label={`${product.productName} 자리 배치 해제`} title="자리 배치 해제" className={`absolute top-1 right-1 flex size-5 items-center justify-center rounded focus-visible:outline-2 focus-visible:outline-offset-1 ${focused ? 'text-white/80 hover:bg-white/15 hover:text-white focus-visible:outline-white' : 'text-muted-foreground hover:bg-danger-soft hover:text-danger focus-visible:outline-danger'}`} onClick={onClear}><X aria-hidden="true" size={12} /></button>
+    </div>
+  );
 }
 
 function getLevelLabel(level: StorageLevel, levelCount: number): string {

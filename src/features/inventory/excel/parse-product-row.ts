@@ -32,11 +32,11 @@ function parseRequiredText(
   columnName: string,
   errors: ProductSheetErrorDetail[],
 ): string {
-  if (typeof value !== 'string' || !value.trim()) {
+  if ((typeof value !== 'string' && typeof value !== 'number') || !String(value).trim()) {
     errors.push({ rowNumber, columnName, value, message: '필수 값이 비어 있습니다.' });
     return '';
   }
-  return value.trim();
+  return String(value).trim();
 }
 
 function parseEthanolPercent(

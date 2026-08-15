@@ -71,6 +71,18 @@ describe('ExcelProductRepository', () => {
     expect(products[0]?.ethanolPercent).toBe(5.5);
   });
 
+  it('숫자 셀로 저장된 제품명도 출품작으로 읽는다', async () => {
+    const workbook = read(createWorkbookBuffer(), { type: 'array' });
+    const worksheet = workbook.Sheets['우리술'];
+    worksheet.D5 = { t: 's', v: '미미소' };
+    worksheet.J5 = { t: 'n', v: 3 };
+    const buffer = write(workbook, { type: 'array', bookType: 'xlsx' });
+
+    const products = await ExcelProductRepository.fromArrayBuffer(buffer).getProducts();
+
+    expect(products[0]).toMatchObject({ companyName: '미미소', productName: '3' });
+  });
+
   it('수량·위치·수령일·비고 셀만 변경하고 다른 시트를 보존한다', async () => {
     const originalBuffer = createWorkbookBuffer();
     const repository = ExcelProductRepository.fromArrayBuffer(originalBuffer);

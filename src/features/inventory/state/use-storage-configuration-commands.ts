@@ -4,7 +4,7 @@ import { useCallback, type Dispatch, type MutableRefObject } from 'react';
 
 import { extractStorageFacilityLabels } from '../lib/parse-storage-location';
 import type { Product } from '../model/product';
-import { isStorageLocation, type StorageConfiguration, type StorageType } from '../model/storage';
+import { getStorageType, isStorageLocation, type StorageConfiguration, type StorageType } from '../model/storage';
 import {
   addObservedStorageFacilities,
   createDefaultStorageConfiguration,
@@ -139,6 +139,10 @@ export function useStorageConfigurationCommands(
         )
       ) {
         throw new Error('이미 사용 중인 보관위치명입니다.');
+      }
+      const nextStorageType = nextLabel ? getStorageType(nextLabel) : null;
+      if (nextStorageType && nextStorageType !== facility.type) {
+        throw new Error('설비 종류와 같은 종류의 보관위치명으로 변경해주세요.');
       }
 
       const affectedProducts = products.filter((product) =>

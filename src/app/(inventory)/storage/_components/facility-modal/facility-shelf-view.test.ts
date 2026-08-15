@@ -27,6 +27,48 @@ const fridge: StorageFacility = {
 };
 
 describe('FacilityShelfView', () => {
+  it('렉은 7자리씩 구간 탭으로 나누어 렌더링한다', () => {
+    const html = renderToStaticMarkup(createElement(FacilityShelfView, {
+      facility: rack,
+      placements: [],
+      focusedProductId: null,
+      draft: null,
+      isDropSaving: false,
+      activeDragItem: null,
+      onBeginDrag: vi.fn(),
+      onEndDrag: vi.fn(),
+      onSelectProduct: vi.fn(),
+      onDropPlacement: vi.fn(),
+      onClearPlacement: vi.fn(),
+    }));
+
+    expect(html).toContain('aria-label="렉 자리 구간"');
+    expect(html).toContain('1–7');
+    expect(html).toContain('8–14');
+    expect(html).toContain('aria-label="왼쪽에서 7번째 자리"');
+    expect(html).not.toContain('aria-label="왼쪽에서 8번째 자리"');
+    expect(html).toContain('grid-template-columns:repeat(7, minmax(0, 1fr))');
+  });
+
+  it('이름이 렉인 기존 설비도 저장 타입과 관계없이 구간 탭을 사용한다', () => {
+    const html = renderToStaticMarkup(createElement(FacilityShelfView, {
+      facility: { ...rack, type: 'shelf' },
+      placements: [],
+      focusedProductId: null,
+      draft: null,
+      isDropSaving: false,
+      activeDragItem: null,
+      onBeginDrag: vi.fn(),
+      onEndDrag: vi.fn(),
+      onSelectProduct: vi.fn(),
+      onDropPlacement: vi.fn(),
+      onClearPlacement: vi.fn(),
+    }));
+
+    expect(html).toContain('aria-label="렉 자리 구간"');
+    expect(html).not.toContain('aria-label="왼쪽에서 8번째 자리"');
+  });
+
   it('일반 보기의 빈 자리를 드롭 이벤트를 막는 비활성 버튼으로 렌더링하지 않는다', () => {
     const html = renderToStaticMarkup(createElement(FacilityShelfView, {
       facility: rack,
@@ -34,6 +76,9 @@ describe('FacilityShelfView', () => {
       focusedProductId: null,
       draft: null,
       isDropSaving: false,
+      activeDragItem: null,
+      onBeginDrag: vi.fn(),
+      onEndDrag: vi.fn(),
       onSelectProduct: vi.fn(),
       onDropPlacement: vi.fn(),
       onClearPlacement: vi.fn(),
@@ -51,6 +96,9 @@ describe('FacilityShelfView', () => {
       focusedProductId: null,
       draft: null,
       isDropSaving: false,
+      activeDragItem: null,
+      onBeginDrag: vi.fn(),
+      onEndDrag: vi.fn(),
       onSelectProduct: vi.fn(),
       onDropPlacement: vi.fn(),
       onClearPlacement: vi.fn(),
