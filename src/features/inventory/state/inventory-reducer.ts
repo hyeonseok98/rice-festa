@@ -103,7 +103,9 @@ export type InventoryAction =
     }
   | { type: 'saveStarted' }
   | { type: 'saveSucceeded'; message: string }
-  | { type: 'saveFailed'; errorMessage: string };
+  | { type: 'saveFailed'; errorMessage: string }
+  | { type: 'workbookActionSucceeded'; message: string }
+  | { type: 'workbookActionFailed'; errorMessage: string };
 
 function withUpdatedChange(
   state: InventoryState,
@@ -281,5 +283,17 @@ export function inventoryReducer(
       };
     case 'saveFailed':
       return { ...state, status: 'ready', errorMessage: action.errorMessage };
+    case 'workbookActionSucceeded':
+      return {
+        ...state,
+        errorMessage: null,
+        lastSaveMessage: action.message,
+      };
+    case 'workbookActionFailed':
+      return {
+        ...state,
+        errorMessage: action.errorMessage,
+        lastSaveMessage: null,
+      };
   }
 }

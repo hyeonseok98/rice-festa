@@ -217,12 +217,18 @@ export function useWorkbookSession(
   const saveInitialWorkbookBackup = useCallback(async () => {
     const activeWorkbookSession = activeWorkbookSessionRef.current;
     if (!activeWorkbookSession || !state.fileName) return;
-    const saveResult = await saveWorkbookCopy(
-      createBackupFileName(state.fileName),
-      cloneArrayBuffer(activeWorkbookSession.originalBytes),
-    );
-    if (saveResult === 'saved') activeWorkbookSession.backupDecisionStatus = 'created';
-  }, [state.fileName]);
+    try {
+      const saveResult = await saveWorkbookCopy(
+        createBackupFileName(state.fileName),
+        cloneArrayBuffer(activeWorkbookSession.originalBytes),
+      );
+      if (saveResult !== 'saved') return;
+      activeWorkbookSession.backupDecisionStatus = 'created';
+      dispatch({ type: 'workbookActionSucceeded', message: '처음 불러온 원본의 백업본을 저장했습니다.' });
+    } catch (error: unknown) {
+      dispatch({ type: 'workbookActionFailed', errorMessage: getErrorMessage(error) });
+    }
+  }, [dispatch, state.fileName]);
 
   const saveOriginalWorkbook = useCallback(async () => {
     const activeWorkbookSession = activeWorkbookSessionRef.current;
@@ -257,11 +263,17 @@ export function useWorkbookSession(
   const saveChangedWorkbookCopy = useCallback(async () => {
     const activeWorkbookSession = activeWorkbookSessionRef.current;
     if (!activeWorkbookSession || !state.fileName) return;
-    await saveWorkbookCopy(
-      createChangedWorkbookFileName(state.fileName),
-      activeWorkbookSession.repository.exportArrayBuffer(),
-    );
-  }, [state.fileName]);
+    try {
+      const saveResult = await saveWorkbookCopy(
+        createChangedWorkbookFileName(state.fileName),
+        activeWorkbookSession.repository.exportArrayBuffer(),
+      );
+      if (saveResult !== 'saved') return;
+      dispatch({ type: 'workbookActionSucceeded', message: '현재 변경사항이 담긴 사본을 저장했습니다.' });
+    } catch (error: unknown) {
+      dispatch({ type: 'workbookActionFailed', errorMessage: getErrorMessage(error) });
+    }
+  }, [dispatch, state.fileName]);
 
   const restoreInitialWorkbook = useCallback(async () => {
     const activeWorkbookSession = activeWorkbookSessionRef.current;

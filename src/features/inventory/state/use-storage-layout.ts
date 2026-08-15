@@ -7,8 +7,7 @@ import { useInventorySession } from './inventory-context';
 
 export interface StorageLayoutController {
   units: StorageUnit[];
-  isHydrated: boolean;
-  moveUnit: (unitId: string, x: number, y: number) => void;
+  moveUnit: (unitId: string, x: number, y: number) => Promise<void>;
   addUnit: (type: StorageType) => Promise<string>;
   updateUnitLabel: (unitId: string, label: string | null) => Promise<void>;
   removeUnit: (unitId: string) => Promise<void>;
@@ -27,14 +26,13 @@ export function useStorageLayout(): StorageLayoutController {
 
   const moveUnit = useCallback(
     (unitId: string, x: number, y: number) => {
-      void moveStorageFacility(unitId, x, y).catch(() => undefined);
+      return moveStorageFacility(unitId, x, y);
     },
     [moveStorageFacility],
   );
 
   return {
     units: storageConfiguration.facilities,
-    isHydrated: true,
     moveUnit,
     addUnit: addStorageFacility,
     updateUnitLabel: renameStorageFacility,

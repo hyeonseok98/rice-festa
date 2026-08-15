@@ -217,6 +217,19 @@ export function useStorageConfigurationCommands(
       if (!Number.isInteger(levelCount) || levelCount < 1 || levelCount > 20) {
         throw new Error('칸 수는 1개 이상 20개 이하로 입력해주세요.');
       }
+      const highestOccupiedLevel = products.reduce((highestLevel, product) => {
+        const productHighestLevel = product.placements.reduce(
+          (highestPlacementLevel, placement) =>
+            placement.facilityId === facilityId
+              ? Math.max(highestPlacementLevel, placement.levelNumber ?? 0)
+              : highestPlacementLevel,
+          0,
+        );
+        return Math.max(highestLevel, productHighestLevel);
+      }, 0);
+      if (levelCount < highestOccupiedLevel) {
+        throw new Error(`${highestOccupiedLevel}번째 칸에 제품이 있어 칸 수를 줄일 수 없습니다.`);
+      }
       await commitStorageConfiguration(
         (currentConfiguration) => ({
           ...currentConfiguration,
@@ -234,13 +247,30 @@ export function useStorageConfigurationCommands(
         true,
       );
     },
-    [commitStorageConfiguration],
+    [commitStorageConfiguration, products],
   );
 
   const setStorageLevelSlotCount = useCallback(
     async (facilityId: string, levelId: string, slotCount: number) => {
       if (!Number.isInteger(slotCount) || slotCount < 1 || slotCount > 50) {
         throw new Error('자리 수는 1개 이상 50개 이하로 입력해주세요.');
+      }
+      const currentConfiguration = activeWorkbookSessionRef.current?.repository.getStorageConfiguration();
+      const levelOrder = currentConfiguration?.facilities
+        .find((facility) => facility.id === facilityId)
+        ?.levels.find((level) => level.id === levelId)?.order;
+      const highestOccupiedSlot = products.reduce((highestSlot, product) => {
+        const productHighestSlot = product.placements.reduce(
+          (highestPlacementSlot, placement) =>
+            placement.facilityId === facilityId && placement.levelNumber === levelOrder
+              ? Math.max(highestPlacementSlot, placement.slotEnd ?? placement.slotStart ?? 0)
+              : highestPlacementSlot,
+          0,
+        );
+        return Math.max(highestSlot, productHighestSlot);
+      }, 0);
+      if (slotCount < highestOccupiedSlot) {
+        throw new Error(`${highestOccupiedSlot}번째 자리에 제품이 있어 자리 수를 줄일 수 없습니다.`);
       }
       await commitStorageConfiguration(
         (currentConfiguration) => ({
@@ -259,7 +289,7 @@ export function useStorageConfigurationCommands(
         true,
       );
     },
-    [commitStorageConfiguration],
+    [activeWorkbookSessionRef, commitStorageConfiguration, products],
   );
 
   return {

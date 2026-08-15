@@ -7,6 +7,7 @@ function createProduct(id: string, location: Product['location']): Product {
   return {
     id,
     division: 'traditional-liquor',
+    categories: ['liquor-high'],
     companyName: '한강양조',
     productName: `출품작 ${id}`,
     foodType: '탁주',

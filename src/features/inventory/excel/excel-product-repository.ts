@@ -1,4 +1,4 @@
-import { SSF, read, utils, write, type CellObject, type WorkBook, type WorkSheet } from 'xlsx';
+import { SSF, read, utils, type CellObject, type WorkBook, type WorkSheet } from 'xlsx';
 
 import { extractStorageFacilityLabels, parseStorageLocation } from '../lib/parse-storage-location';
 import { serializeStorageLocation } from '../lib/serialize-storage-location';
@@ -8,21 +8,28 @@ import {
   createDefaultStorageConfiguration,
 } from '../model/storage-layout';
 import type { Product, ProductDivision, ProductQuantity } from '../model/product';
+import type { ProductCategory } from '../model/product-category';
 import type { ProductRepository } from '../model/product-repository';
 import type { StorageConfiguration } from '../model/storage';
 import type { StoragePlacement } from '../model/storage-placement';
 import { parseProductRow, type ProductExcelRow } from './parse-product-row';
 import { ProductSheetValidationError, type ProductSheetErrorDetail } from './product-sheet-error';
 import {
+  createStorageConfigurationMetadataProperties,
   readStorageConfigurationMetadata,
-  writeStorageConfigurationMetadata,
 } from './workbook-storage-metadata';
+import {
+  patchXlsxWorkbook,
+  type XlsxCellPatch,
+  type XlsxCellPatchValue,
+} from './patch-xlsx-workbook';
 
 interface ProductSheetSchema {
   sheetName: string;
   division: ProductDivision;
   headerRowNumber: number;
   firstDataRowNumber: number;
+  categoryColumns: Array<{ category: ProductCategory; column: number }>;
   columns: {
     companyName: number;
     productName: number;
@@ -51,6 +58,12 @@ const PRODUCT_SHEET_SCHEMAS: ProductSheetSchema[] = [
     division: 'traditional-liquor',
     headerRowNumber: 3,
     firstDataRowNumber: 5,
+    categoryColumns: [
+      { category: 'liquor-low', column: 4 },
+      { category: 'liquor-high', column: 5 },
+      { category: 'liquor-yakcheong', column: 6 },
+      { category: 'liquor-distilled', column: 7 },
+    ],
     columns: {
       companyName: 3,
       productName: 9,
@@ -67,6 +80,11 @@ const PRODUCT_SHEET_SCHEMAS: ProductSheetSchema[] = [
     division: 'rice-product',
     headerRowNumber: 3,
     firstDataRowNumber: 5,
+    categoryColumns: [
+      { category: 'rice-cooked', column: 4 },
+      { category: 'rice-uncooked', column: 5 },
+      { category: 'rice-nonghyup', column: 6 },
+    ],
     columns: {
       companyName: 3,
       productName: 8,
@@ -149,6 +167,10 @@ function readProductExcelRow(
     location: getCellValue(worksheet, columns.location, rowNumber),
     receivedAt: normalizeExcelDate(getCellValue(worksheet, columns.receivedAt, rowNumber)),
     note: getCellValue(worksheet, columns.note, rowNumber),
+    categoryValues: schema.categoryColumns.map(({ category, column }) => ({
+      category,
+      value: getCellValue(worksheet, column, rowNumber),
+    })),
   };
 }
 
@@ -177,8 +199,10 @@ function createExcelDateSerial(value: string): number {
 
 export class ExcelProductRepository implements ProductRepository {
   private readonly sourceByProductId: Map<string, ExcelProductSource>;
+  private readonly pendingCellPatches = new Map<string, XlsxCellPatch>();
 
   private constructor(
+    private readonly originalWorkbookBytes: ArrayBuffer,
     private readonly workbook: WorkBook,
     private products: Product[],
     sources: ExcelProductSource[],
@@ -270,6 +294,7 @@ export class ExcelProductRepository implements ProductRepository {
     const workbookWarnings = metadataResult.warningMessage ? [metadataResult.warningMessage] : [];
 
     return new ExcelProductRepository(
+      arrayBuffer.slice(0),
       workbook,
       products,
       sources,
@@ -348,8 +373,11 @@ export class ExcelProductRepository implements ProductRepository {
   }
 
   exportArrayBuffer(): ArrayBuffer {
-    writeStorageConfigurationMetadata(this.workbook, this.storageConfiguration);
-    return write(this.workbook, { type: 'array', bookType: 'xlsx', cellDates: false, cellStyles: true });
+    return patchXlsxWorkbook(
+      this.originalWorkbookBytes,
+      [...this.pendingCellPatches.values()],
+      createStorageConfigurationMetadataProperties(this.storageConfiguration),
+    );
   }
 
   private getSource(productId: string): ExcelProductSource {
@@ -368,12 +396,21 @@ export class ExcelProductRepository implements ProductRepository {
     const worksheet = this.workbook.Sheets[source.sheetName];
     const address = utils.encode_cell({ c: columnIndex, r: source.rowNumber - 1 });
     worksheet[address] = { ...worksheet[address], ...value };
+    const patchValue: XlsxCellPatchValue = value.t === 'n'
+      ? { type: 'number', value: Number(value.v) }
+      : { type: 'string', value: String(value.v ?? '') };
+    this.pendingCellPatches.set(`${source.sheetName}!${address}`, {
+      sheetName: source.sheetName,
+      address,
+      value: patchValue,
+    });
   }
 }
 
 function cloneProduct(product: Product): Product {
   return {
     ...product,
+    categories: [...product.categories],
     placements: product.placements.map((placement) => ({ ...placement })),
     locationIssues: product.locationIssues.map((issue) => ({ ...issue })),
   };

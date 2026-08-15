@@ -44,11 +44,11 @@ export function StorageUnitCard({
     <button
       type="button"
       aria-label={`${unit.label ?? '이름 없는 설비'}, ${summary.productCount}종, 수량 ${summary.numericQuantity}`}
-      className={`absolute flex flex-col rounded-2xl border p-3 text-left transition-[border-color,background-color,opacity,transform] duration-200 focus-visible:z-10 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+      className={`absolute flex flex-col rounded-md border p-3 text-left transition-[border-color,background-color,opacity] duration-200 focus-visible:z-10 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-primary ${
         unit.label ? 'bg-surface' : 'border-dashed bg-surface-hover'
       } ${isHighlighted ? 'z-10 border-primary bg-primary-soft ring-4 ring-primary/20' : 'border-border-strong'} ${
         isDimmed ? 'opacity-35' : 'opacity-100'
-      } ${isEditing ? 'cursor-grab touch-none active:cursor-grabbing' : 'hover:-translate-y-0.5 hover:border-primary'}`}
+      } ${isEditing ? 'cursor-grab touch-none active:cursor-grabbing' : 'hover:border-primary'}`}
       style={{
         left: unit.x,
         top: unit.y,

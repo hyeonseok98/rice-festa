@@ -7,6 +7,7 @@ function createProduct(overrides: Partial<Product>): Product {
   return {
     id: '1',
     division: 'traditional-liquor',
+    categories: ['liquor-low'],
     companyName: '한강양조',
     productName: '막걸리',
     foodType: '탁주',

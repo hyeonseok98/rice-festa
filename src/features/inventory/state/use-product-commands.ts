@@ -5,7 +5,7 @@ import { useCallback, type Dispatch, type MutableRefObject } from 'react';
 import { serializeStorageLocation } from '../lib/serialize-storage-location';
 import { validateProductQuantity } from '../lib/update-product-quantity';
 import type { Product, ProductQuantity } from '../model/product';
-import type { StoragePlacement } from '../model/storage-placement';
+import type { StoragePlacement, StoragePlacementMutation } from '../model/storage-placement';
 import type { InventoryAction } from './inventory-reducer';
 import type { ActiveWorkbookSession } from './use-workbook-session';
 
@@ -13,6 +13,8 @@ interface ProductCommands {
   updateQuantity: (productId: string, quantity: ProductQuantity) => Promise<void>;
   updateLocation: (productId: string, location: string | null) => Promise<void>;
   updatePlacements: (productId: string, placements: StoragePlacement[]) => Promise<void>;
+  saveProductPlacement: (productId: string, mutation: StoragePlacementMutation) => Promise<string>;
+  removeProductPlacement: (productId: string, placementId: string) => Promise<void>;
   updateReceivedAt: (productId: string, receivedAt: string | null) => Promise<void>;
   updateNote: (productId: string, note: string | null) => Promise<void>;
 }
@@ -86,6 +88,42 @@ export function useProductCommands(
     [updateLocation],
   );
 
+  const saveProductPlacement = useCallback(
+    async (productId: string, mutation: StoragePlacementMutation) => {
+      const product = findProduct(products, productId);
+      const placementId = mutation.placementId ?? `${productId}:placement:${crypto.randomUUID()}`;
+      const savedPlacement: StoragePlacement = {
+        id: placementId,
+        facilityId: mutation.facilityId,
+        facilityLabel: mutation.facilityLabel,
+        levelNumber: mutation.levelNumber,
+        slotStart: mutation.slotStart,
+        slotEnd: mutation.slotEnd,
+        isBehind: mutation.isBehind,
+        purpose: mutation.purpose,
+      };
+      const placements = mutation.placementId
+        ? product.placements.map((placement) =>
+            placement.id === mutation.placementId ? savedPlacement : placement,
+          )
+        : [...product.placements, savedPlacement];
+      await updatePlacements(productId, placements);
+      return placementId;
+    },
+    [products, updatePlacements],
+  );
+
+  const removeProductPlacement = useCallback(
+    async (productId: string, placementId: string) => {
+      const product = findProduct(products, productId);
+      await updatePlacements(
+        productId,
+        product.placements.filter((placement) => placement.id !== placementId),
+      );
+    },
+    [products, updatePlacements],
+  );
+
   const updateReceivedAt = useCallback(
     async (productId: string, receivedAt: string | null) => {
       const activeWorkbookSession = activeWorkbookSessionRef.current;
@@ -123,5 +161,13 @@ export function useProductCommands(
     [activeWorkbookSessionRef, dispatch, products, requireEditPermission],
   );
 
-  return { updateQuantity, updateLocation, updatePlacements, updateReceivedAt, updateNote };
+  return {
+    updateQuantity,
+    updateLocation,
+    updatePlacements,
+    saveProductPlacement,
+    removeProductPlacement,
+    updateReceivedAt,
+    updateNote,
+  };
 }

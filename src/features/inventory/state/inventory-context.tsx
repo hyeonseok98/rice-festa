@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useReducer, type ReactNode } from
 
 import type { ProductQuantity } from '../model/product';
 import type { StorageType } from '../model/storage';
-import type { StoragePlacement } from '../model/storage-placement';
+import type { StoragePlacement, StoragePlacementMutation } from '../model/storage-placement';
 import { initialInventoryState, inventoryReducer, type InventoryState } from './inventory-reducer';
 import { useProductCommands } from './use-product-commands';
 import { useStorageConfigurationCommands } from './use-storage-configuration-commands';
@@ -17,6 +17,8 @@ interface InventoryContextValue extends InventoryState {
   updateQuantity: (productId: string, quantity: ProductQuantity) => Promise<void>;
   updateLocation: (productId: string, location: string | null) => Promise<void>;
   updatePlacements: (productId: string, placements: StoragePlacement[]) => Promise<void>;
+  saveProductPlacement: (productId: string, mutation: StoragePlacementMutation) => Promise<string>;
+  removeProductPlacement: (productId: string, placementId: string) => Promise<void>;
   updateReceivedAt: (productId: string, receivedAt: string | null) => Promise<void>;
   updateNote: (productId: string, note: string | null) => Promise<void>;
   moveStorageFacility: (facilityId: string, x: number, y: number) => Promise<void>;
@@ -37,7 +39,6 @@ interface InventoryContextValue extends InventoryState {
   saveOriginalWorkbook: () => Promise<void>;
   saveChangedWorkbookCopy: () => Promise<void>;
   restoreInitialWorkbook: () => Promise<void>;
-  downloadWorkbook: () => Promise<void>;
 }
 
 const InventoryContext = createContext<InventoryContextValue | null>(null);
@@ -82,7 +83,6 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     saveOriginalWorkbook: workbookSession.saveOriginalWorkbook,
     saveChangedWorkbookCopy: workbookSession.saveChangedWorkbookCopy,
     restoreInitialWorkbook: workbookSession.restoreInitialWorkbook,
-    downloadWorkbook: workbookSession.saveOriginalWorkbook,
   };
 
   return <InventoryContext.Provider value={contextValue}>{children}</InventoryContext.Provider>;

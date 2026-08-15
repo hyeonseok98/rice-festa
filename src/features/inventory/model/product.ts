@@ -1,4 +1,5 @@
 import type { StorageLocationIssue, StoragePlacement } from './storage-placement';
+import type { ProductCategory } from './product-category';
 
 export type ProductDivision = 'traditional-liquor' | 'rice-product';
 export type ProductQuantity = number | string | null;
@@ -7,6 +8,7 @@ export type ProductReceiptStatus = 'not-received' | 'unassigned' | 'assigned' | 
 export interface Product {
   id: string;
   division: ProductDivision;
+  categories: ProductCategory[];
   companyName: string;
   productName: string;
   foodType: string;

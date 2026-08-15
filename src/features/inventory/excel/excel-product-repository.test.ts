@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { unzipSync } from 'fflate';
 import { read, utils, write } from 'xlsx';
 
 import { ExcelProductRepository } from './excel-product-repository';
@@ -40,6 +41,7 @@ describe('ExcelProductRepository', () => {
     expect(products[0]).toMatchObject({
       id: '%EC%9A%B0%EB%A6%AC%EC%88%A0:5',
       division: 'traditional-liquor',
+      categories: ['liquor-low'],
       companyName: '한강양조',
       productName: '서울 생막걸리',
       ethanolPercent: 6,
@@ -51,6 +53,7 @@ describe('ExcelProductRepository', () => {
     expect(products[1].companyName).toBe('한강양조');
     expect(products[2]).toMatchObject({
       division: 'rice-product',
+      categories: ['rice-cooked'],
       quantity: '5박스',
       location: '렉-5',
       note: '박스 단위',
@@ -69,7 +72,8 @@ describe('ExcelProductRepository', () => {
   });
 
   it('수량·위치·수령일·비고 셀만 변경하고 다른 시트를 보존한다', async () => {
-    const repository = ExcelProductRepository.fromArrayBuffer(createWorkbookBuffer());
+    const originalBuffer = createWorkbookBuffer();
+    const repository = ExcelProductRepository.fromArrayBuffer(originalBuffer);
     const products = await repository.getProducts();
     const product = products[1];
 
@@ -82,6 +86,17 @@ describe('ExcelProductRepository', () => {
     await repository.updateNote(product.id, '배치 완료');
 
     const savedBuffer = repository.exportArrayBuffer();
+    const originalArchive = unzipSync(new Uint8Array(originalBuffer));
+    const savedArchive = unzipSync(new Uint8Array(savedBuffer));
+    expect(savedArchive['xl/styles.xml']).toEqual(originalArchive['xl/styles.xml']);
+    expect(savedArchive['xl/theme/theme1.xml']).toEqual(originalArchive['xl/theme/theme1.xml']);
+    expect(savedArchive['xl/workbook.xml']).toEqual(originalArchive['xl/workbook.xml']);
+    expect(savedArchive['xl/worksheets/sheet2.xml']).toEqual(
+      originalArchive['xl/worksheets/sheet2.xml'],
+    );
+    expect(savedArchive['xl/worksheets/sheet3.xml']).toEqual(
+      originalArchive['xl/worksheets/sheet3.xml'],
+    );
     const savedWorkbook = read(savedBuffer, { type: 'array', cellDates: false });
     const worksheet = savedWorkbook.Sheets['우리술'];
     expect(worksheet.J6.v).toBe('서울 막걸리 12');

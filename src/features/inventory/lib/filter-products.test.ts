@@ -7,6 +7,7 @@ const products: Product[] = [
   {
     id: '1',
     division: 'traditional-liquor',
+    categories: ['liquor-low'],
     companyName: '한강양조',
     productName: '서울 생막걸리',
     foodType: '탁주',
@@ -21,6 +22,7 @@ const products: Product[] = [
   {
     id: '2',
     division: 'rice-product',
+    categories: ['rice-uncooked'],
     companyName: '다온제과',
     productName: '쌀 약과',
     foodType: '쌀가공식품',
@@ -35,11 +37,17 @@ const products: Product[] = [
 ];
 
 describe('filterProducts', () => {
-  it('업체명, 제품명, 식품유형, 위치를 검색한다', () => {
-    expect(filterProducts(products, '한강')).toEqual([products[0]]);
+  it('제품명에 검색어가 포함된 항목만 검색한다', () => {
+    expect(filterProducts(products, '생막걸리')).toEqual([products[0]]);
     expect(filterProducts(products, '약과')).toEqual([products[1]]);
-    expect(filterProducts(products, '쌀가공')).toEqual([products[1]]);
-    expect(filterProducts(products, '렉-2')).toEqual([products[1]]);
-    expect(filterProducts(products, '상온')).toEqual([products[1]]);
+  });
+
+  it('업체명·식품유형·위치·비고·초성·오타는 검색하지 않는다', () => {
+    expect(filterProducts(products, '한강')).toEqual([]);
+    expect(filterProducts(products, '쌀가공')).toEqual([]);
+    expect(filterProducts(products, '렉-2')).toEqual([]);
+    expect(filterProducts(products, '상온')).toEqual([]);
+    expect(filterProducts(products, 'ㅎㄱ')).toEqual([]);
+    expect(filterProducts(products, '생마걸리')).toEqual([]);
   });
 });

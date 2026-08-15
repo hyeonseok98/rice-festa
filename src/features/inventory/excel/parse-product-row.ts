@@ -1,4 +1,5 @@
 import type { Product, ProductDivision, ProductQuantity } from '../model/product';
+import type { ProductCategory } from '../model/product-category';
 import type { ProductSheetErrorDetail } from './product-sheet-error';
 
 export interface ProductExcelRow {
@@ -10,6 +11,7 @@ export interface ProductExcelRow {
   location: unknown;
   receivedAt: unknown;
   note: unknown;
+  categoryValues: Array<{ category: ProductCategory; value: unknown }>;
 }
 
 interface ParseProductRowInput {
@@ -99,6 +101,13 @@ function parseOptionalText(value: unknown): string | null {
   return text || null;
 }
 
+function isSelectedCategoryValue(value: unknown): boolean {
+  if (value === null || value === undefined || value === '' || value === false) return false;
+  if (typeof value === 'number') return value !== 0;
+  const normalizedValue = String(value).trim().toLocaleLowerCase('ko-KR');
+  return normalizedValue !== '' && normalizedValue !== '0' && normalizedValue !== 'x' && normalizedValue !== '아니오';
+}
+
 export function parseProductRow({
   id,
   division,
@@ -109,6 +118,9 @@ export function parseProductRow({
   const product: Product = {
     id,
     division,
+    categories: row.categoryValues
+      .filter(({ value }) => isSelectedCategoryValue(value))
+      .map(({ category }) => category),
     companyName: parseRequiredText(row.companyName, rowNumber, '업체명', errors),
     productName: parseRequiredText(row.productName, rowNumber, '제품명', errors),
     foodType: parseRequiredText(row.foodType, rowNumber, '식품유형', errors),

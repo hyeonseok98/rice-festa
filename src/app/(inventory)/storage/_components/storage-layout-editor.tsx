@@ -48,7 +48,7 @@ export function StorageLayoutEditor({
   };
 
   return (
-    <aside className="rounded-2xl border border-border bg-surface p-5" aria-label="배치 편집 도구">
+    <div className="bg-surface" aria-label="배치 편집 도구">
       <h2 className="font-extrabold">설비 추가</h2>
       <p className="mt-1 text-sm leading-6 text-muted-foreground">추가한 설비는 지도에서 원하는 위치로 옮겨주세요.</p>
       <div className="mt-4 grid grid-cols-2 gap-2">
@@ -113,6 +113,6 @@ export function StorageLayoutEditor({
         <RotateCcw aria-hidden="true" size={16} /> 기본 배치로 초기화
       </Button>
       <p className="mt-3 text-center text-xs text-muted-foreground">배치는 현재 Excel 파일 내부에 저장됩니다.</p>
-    </aside>
+    </div>
   );
 }

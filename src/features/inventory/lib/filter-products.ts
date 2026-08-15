@@ -1,21 +1,7 @@
 import type { Product } from '../model/product';
+import { createProductSearchIndex } from './search-products';
 
 export function filterProducts(products: Product[], searchQuery: string): Product[] {
-  const normalizedQuery = searchQuery.trim().toLocaleLowerCase('ko-KR');
-
-  if (!normalizedQuery) {
-    return products;
-  }
-
-  return products.filter((product) =>
-    [
-      product.companyName,
-      product.productName,
-      product.foodType,
-      product.location ?? '',
-      product.note ?? '',
-    ].some(
-      (value) => value.toLocaleLowerCase('ko-KR').includes(normalizedQuery),
-    ),
-  );
+  if (!searchQuery.trim()) return products;
+  return createProductSearchIndex(products).searchProducts(searchQuery).map(({ product }) => product);
 }

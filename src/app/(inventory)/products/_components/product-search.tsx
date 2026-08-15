@@ -10,7 +10,7 @@ export function ProductSearch({ value, resultCount, onChange }: ProductSearchPro
   return (
     <div className="relative w-full md:max-w-110">
       <label htmlFor="product-search" className="sr-only">
-        업체명 또는 제품명 검색
+        제품명 검색
       </label>
       <Search
         aria-hidden="true"
@@ -21,7 +21,7 @@ export function ProductSearch({ value, resultCount, onChange }: ProductSearchPro
         id="product-search"
         type="search"
         value={value}
-        placeholder="업체명, 제품명, 식품유형, 위치 검색"
+        placeholder="제품명 검색"
         className="h-12 w-full rounded-xl border border-border-strong bg-surface pr-20 pl-12 text-base outline-none transition-shadow placeholder:text-muted-foreground focus:border-primary focus:ring-3 focus:ring-primary/25"
         onChange={(event) => onChange(event.target.value)}
       />

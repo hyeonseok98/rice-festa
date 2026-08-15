@@ -171,13 +171,25 @@ export function writeStorageConfigurationMetadata(
     if (propertyName.startsWith(STORAGE_METADATA_CHUNK_PREFIX)) delete customProperties[propertyName];
   }
 
+  Object.assign(
+    customProperties,
+    createStorageConfigurationMetadataProperties(storageConfiguration),
+  );
+  workbook.Custprops = customProperties;
+}
+
+export function createStorageConfigurationMetadataProperties(
+  storageConfiguration: StorageConfiguration,
+): Record<string, string | number> {
   const serializedConfiguration = JSON.stringify(storageConfiguration);
   const chunks = createMetadataChunks(serializedConfiguration);
-  customProperties[STORAGE_METADATA_SCHEMA_KEY] = 1;
-  customProperties[STORAGE_METADATA_CHUNK_COUNT_KEY] = chunks.length;
-  customProperties[STORAGE_METADATA_CHECKSUM_KEY] = calculateMetadataChecksum(serializedConfiguration);
+  const properties: Record<string, string | number> = {
+    [STORAGE_METADATA_SCHEMA_KEY]: 1,
+    [STORAGE_METADATA_CHUNK_COUNT_KEY]: chunks.length,
+    [STORAGE_METADATA_CHECKSUM_KEY]: calculateMetadataChecksum(serializedConfiguration),
+  };
   chunks.forEach((chunk, chunkIndex) => {
-    customProperties[getChunkKey(chunkIndex)] = chunk;
+    properties[getChunkKey(chunkIndex)] = chunk;
   });
-  workbook.Custprops = customProperties;
+  return properties;
 }

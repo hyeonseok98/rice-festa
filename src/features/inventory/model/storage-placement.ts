@@ -17,6 +17,17 @@ export interface StoragePlacement {
   purpose: StoragePlacementPurpose;
 }
 
+export interface StoragePlacementMutation {
+  placementId: string | null;
+  facilityId: string;
+  facilityLabel: string;
+  levelNumber: number;
+  slotStart: number;
+  slotEnd: number;
+  isBehind: boolean;
+  purpose: StoragePlacementPurpose;
+}
+
 export interface StorageLocationIssue {
   type: StorageLocationIssueType;
   rawText: string;

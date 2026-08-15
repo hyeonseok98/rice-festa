@@ -1,6 +1,6 @@
 'use client';
 
-import { Download, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 
 import { filterProductsByStorage } from '@/features/inventory/lib/filter-products-by-storage';
@@ -8,6 +8,7 @@ import { filterProducts } from '@/features/inventory/lib/filter-products';
 import { sortStorageLocations, type StorageFilter } from '@/features/inventory/model/storage';
 import { useInventorySession } from '@/features/inventory/state/inventory-context';
 import { Button } from '@/shared/ui/button';
+import { PageHeader } from '@/shared/ui/page-header';
 
 import { ProductDetailDrawer } from './product-detail-drawer';
 import { ProductLocationFilter } from './product-location-filter';
@@ -26,17 +27,12 @@ export function ProductsView() {
   const {
     status,
     products,
-    isDirty,
-    changes,
-    errorMessage,
-    lastSaveMessage,
     workbookWarnings,
     previousFileName,
     newProductIds,
     comparisonId,
     loadWorkbook,
     selectWorkbookFile,
-    downloadWorkbook,
   } = useInventorySession();
   const [searchQuery, setSearchQuery] = useState('');
   const [storageFilter, setStorageFilter] = useState<StorageFilter>('all');
@@ -74,22 +70,16 @@ export function ProductsView() {
   const locationFilteredProducts = filterProductsByStorage(scopedProducts, storageFilter);
   const filteredProducts = filterProducts(locationFilteredProducts, searchQuery);
   const selectedProduct = products.find((product) => product.id === selectedProductId) ?? null;
-  const changedProductCount = Object.keys(changes).length;
-
   return (
     <>
       <section aria-labelledby="products-title">
-        <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
-          <div>
-            <p className="text-sm font-bold text-primary">출품작 목록</p>
-            <h1 id="products-title" className="mt-2 text-3xl font-extrabold tracking-tight">
-              출품작 {products.length}건
-            </h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              제품명을 선택하면 수량과 보관 위치를 변경할 수 있습니다.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
+        <PageHeader
+          title="출품작"
+          countLabel={`${products.length.toLocaleString('ko-KR')}건`}
+          description="업체, 제품, 수령일과 보관 상태를 확인하고 필요한 정보를 수정합니다."
+          titleId="products-title"
+          actions={
+            <>
             <input
               ref={fileInputRef}
               type="file"
@@ -110,17 +100,11 @@ export function ProductsView() {
               }}
             >
               <RefreshCw aria-hidden="true" size={17} />
-              새 파일 비교
+              새 Excel과 비교
             </Button>
-            <Button
-              disabled={!isDirty || status === 'saving'}
-              onClick={() => void downloadWorkbook()}
-            >
-              <Download aria-hidden="true" size={18} />
-              {status === 'saving' ? '저장 중…' : 'Excel 저장'}
-            </Button>
-          </div>
-        </div>
+            </>
+          }
+        />
 
         {previousFileName ? (
           <div className="mt-6 rounded-2xl border border-primary bg-primary-soft p-5">
@@ -143,7 +127,7 @@ export function ProductsView() {
           </div>
         ) : null}
 
-        <div className="mt-8 flex flex-col justify-between gap-4 md:flex-row md:items-center">
+        <div className="mt-8 flex flex-col gap-4 md:flex-row md:items-center">
           <div className="flex w-full flex-col gap-3 sm:flex-row md:max-w-170">
             <ProductSearch
               value={searchQuery}
@@ -156,9 +140,6 @@ export function ProductsView() {
               onChange={setStorageFilter}
             />
           </div>
-          <p className={`text-sm font-semibold ${isDirty ? 'text-warning' : 'text-muted-foreground'}`}>
-            {isDirty ? `${changedProductCount}건의 변경사항이 저장되지 않았습니다.` : '저장할 변경사항이 없습니다.'}
-          </p>
         </div>
 
         {previousFileName && comparisonId !== null ? (
@@ -222,10 +203,6 @@ export function ProductsView() {
           />
         </div>
 
-        <div className="mt-4 min-h-6 text-sm" aria-live="polite">
-          {lastSaveMessage ? <p className="font-semibold text-success">{lastSaveMessage}</p> : null}
-          {errorMessage ? <p className="font-semibold text-danger">{errorMessage}</p> : null}
-        </div>
       </section>
 
       <ProductDetailDrawer
