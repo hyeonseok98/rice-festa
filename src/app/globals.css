@@ -49,6 +49,12 @@ select {
   -webkit-tap-highlight-color: transparent;
 }
 
+button:not(:disabled),
+[role='button']:not([aria-disabled='true']),
+[role='tab']:not([aria-disabled='true']) {
+  cursor: pointer;
+}
+
 dialog::backdrop {
   background: rgb(25 31 40 / 35%);
 }
