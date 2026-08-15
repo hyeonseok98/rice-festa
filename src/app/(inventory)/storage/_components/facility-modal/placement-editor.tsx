@@ -38,7 +38,7 @@ export function PlacementEditor({ product, facility, draft, conflicts, errorMess
       <p className="mt-3 text-xs leading-5 text-muted-foreground">첫 번째 자리를 누르고, 범위가 필요하면 마지막 자리를 한 번 더 누르세요.</p>
 
       <div className="mt-5 grid grid-cols-3 gap-2">
-        <NumberField label="칸" value={draft.levelNumber} max={facility.levels.length} onChange={(levelNumber) => onDraftChange({ levelNumber, slotStart: 1, slotEnd: 1, isRangeComplete: false })} />
+        <NumberField label="칸" value={draft.levelNumber} min={facility.levels.some((level) => level.order === 0) ? 0 : 1} max={Math.max(...facility.levels.map((level) => level.order))} onChange={(levelNumber) => onDraftChange({ levelNumber, slotStart: 1, slotEnd: 1, isRangeComplete: false })} />
         <NumberField label="시작 자리" value={draft.slotStart} max={selectedLevel?.slotCount ?? 1} onChange={(slotStart) => onDraftChange({ slotStart, slotEnd: Math.max(slotStart, draft.slotEnd) })} />
         <NumberField label="끝 자리" value={draft.slotEnd} max={selectedLevel?.slotCount ?? 1} onChange={(slotEnd) => onDraftChange({ slotEnd: Math.max(draft.slotStart, slotEnd), isRangeComplete: true })} />
       </div>
@@ -50,6 +50,6 @@ export function PlacementEditor({ product, facility, draft, conflicts, errorMess
   );
 }
 
-function NumberField({ label, value, max, onChange }: { label: string; value: number; max: number; onChange: (value: number) => void }) {
-  return <label className="text-[11px] font-bold text-muted-foreground">{label}<input type="number" min={1} max={max} value={value} className="mt-1.5 h-10 w-full rounded-lg border border-border px-2 text-sm font-bold text-foreground outline-none focus:border-primary focus:ring-3 focus:ring-primary/20" onChange={(event) => onChange(Math.max(1, Math.min(max, Number(event.target.value) || 1)))} /></label>;
+function NumberField({ label, value, min = 1, max, onChange }: { label: string; value: number; min?: number; max: number; onChange: (value: number) => void }) {
+  return <label className="text-[11px] font-bold text-muted-foreground">{label}<input type="number" min={min} max={max} value={value} className="mt-1.5 h-10 w-full rounded-lg border border-border px-2 text-sm font-bold text-foreground outline-none focus:border-primary focus:ring-3 focus:ring-primary/20" onChange={(event) => onChange(Math.max(min, Math.min(max, Number(event.target.value) || min)))} /></label>;
 }

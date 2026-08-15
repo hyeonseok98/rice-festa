@@ -2,6 +2,8 @@ import type { Product } from '@/features/inventory/model/product';
 import type { StorageFacility } from '@/features/inventory/model/storage';
 import type { StoragePlacementMutation } from '@/features/inventory/model/storage-placement';
 
+import { hasClearFacilityPosition } from './storage-selectors';
+
 export const FACILITY_PLACEMENT_DRAG_TYPE = 'application/x-rice-festa-placement';
 
 export interface FacilityPlacementDragItem {
@@ -13,6 +15,19 @@ export interface FacilityPlacementDropTarget {
   levelNumber: number;
   slotNumber: number;
   isBehind: boolean;
+}
+
+export function createProductCardDragItem(
+  product: Product,
+  facility: StorageFacility,
+): FacilityPlacementDragItem {
+  const pendingPlacement = product.placements.find((placement) =>
+    placement.facilityId === facility.id && !hasClearFacilityPosition(placement, facility),
+  );
+  return {
+    productId: product.id,
+    placementId: pendingPlacement?.id ?? null,
+  };
 }
 
 export function serializeFacilityPlacementDragItem(item: FacilityPlacementDragItem): string {

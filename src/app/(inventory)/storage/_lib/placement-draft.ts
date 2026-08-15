@@ -21,7 +21,7 @@ export function createPlacementDraft(): PlacementDraft {
     levelNumber: 1,
     slotStart: 1,
     slotEnd: 1,
-    isRangeComplete: false,
+    isRangeComplete: true,
     isBehind: false,
     purpose: null,
   };

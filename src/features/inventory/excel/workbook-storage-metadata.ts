@@ -37,8 +37,12 @@ function isStorageLevelKind(value: unknown): value is StorageLevelKind {
   return value === 'shelf' || value === 'floor' || value === 'top' || value === 'bottom';
 }
 
+function isNonNegativeInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0;
+}
+
 function isPositiveInteger(value: unknown): value is number {
-  return typeof value === 'number' && Number.isInteger(value) && value > 0;
+  return isNonNegativeInteger(value) && value > 0;
 }
 
 function isFiniteNumber(value: unknown): value is number {
@@ -49,7 +53,7 @@ function isStorageLevel(value: unknown): value is StorageLevel {
   if (!isRecord(value)) return false;
   return (
     typeof value.id === 'string' &&
-    isPositiveInteger(value.order) &&
+    isNonNegativeInteger(value.order) &&
     isStorageLevelKind(value.kind) &&
     isPositiveInteger(value.slotCount)
   );
@@ -69,6 +73,9 @@ function isStorageFacility(value: unknown): value is StorageFacility {
     value.height > 0 &&
     Array.isArray(value.levels) &&
     value.levels.every(isStorageLevel) &&
+    value.levels.every((level) =>
+      level.order > 0 || (value.type === 'rack' && level.order === 0 && level.kind === 'top'),
+    ) &&
     typeof value.needsLevelReview === 'boolean'
   );
 }

@@ -37,6 +37,18 @@ export function createStorageLevels(
   }));
 }
 
+export function createRackTopLevel(
+  facilityId: string,
+  slotCount = DEFAULT_STORAGE_SLOT_COUNT,
+): StorageLevel {
+  return {
+    id: `${facilityId}:level:0`,
+    order: 0,
+    kind: 'top',
+    slotCount,
+  };
+}
+
 function createStorageFacility(
   id: string,
   type: StorageType,

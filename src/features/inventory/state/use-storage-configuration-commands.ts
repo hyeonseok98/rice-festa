@@ -8,6 +8,7 @@ import { isStorageLocation, type StorageConfiguration, type StorageType } from '
 import {
   addObservedStorageFacilities,
   createDefaultStorageConfiguration,
+  createRackTopLevel,
   createStorageLevels,
 } from '../model/storage-layout';
 import type { InventoryAction } from './inventory-reducer';
@@ -25,6 +26,7 @@ interface StorageConfigurationCommands {
     levelId: string,
     slotCount: number,
   ) => Promise<void>;
+  setStorageFacilityRackTopEnabled: (facilityId: string, enabled: boolean) => Promise<void>;
 }
 
 function createStorageFacilityId(storageType: StorageType): string {
@@ -235,12 +237,17 @@ export function useStorageConfigurationCommands(
           ...currentConfiguration,
           facilities: currentConfiguration.facilities.map((facility) => {
             if (facility.id !== facilityId) return facility;
-            const levels = createStorageLevels(facility.id, facility.type, levelCount).map(
-              (level, index) => ({
+            const existingSlotCounts = new Map(
+              facility.levels.map((level) => [level.order, level.slotCount]),
+            );
+            const regularLevels = createStorageLevels(facility.id, facility.type, levelCount).map(
+              (level) => ({
                 ...level,
-                slotCount: facility.levels[index]?.slotCount ?? level.slotCount,
+                slotCount: existingSlotCounts.get(level.order) ?? level.slotCount,
               }),
             );
+            const topLevel = facility.levels.find((level) => level.order === 0 && level.kind === 'top');
+            const levels = topLevel ? [topLevel, ...regularLevels] : regularLevels;
             return { ...facility, levels, needsLevelReview: false };
           }),
         }),
@@ -292,6 +299,39 @@ export function useStorageConfigurationCommands(
     [activeWorkbookSessionRef, commitStorageConfiguration, products],
   );
 
+  const setStorageFacilityRackTopEnabled = useCallback(
+    async (facilityId: string, enabled: boolean) => {
+      const currentConfiguration = activeWorkbookSessionRef.current?.repository.getStorageConfiguration();
+      const facility = currentConfiguration?.facilities.find((item) => item.id === facilityId);
+      if (!facility || facility.type !== 'rack') {
+        throw new Error('렉에만 꼭대기 칸을 추가할 수 있습니다.');
+      }
+      const hasTopLevel = facility.levels.some((level) => level.order === 0 && level.kind === 'top');
+      if (hasTopLevel === enabled) return;
+      if (!enabled && products.some((product) =>
+        product.placements.some((placement) => placement.facilityId === facilityId && placement.levelNumber === 0),
+      )) {
+        throw new Error('꼭대기 칸에 제품이 있어 제거할 수 없습니다.');
+      }
+      await commitStorageConfiguration(
+        (currentConfiguration) => ({
+          ...currentConfiguration,
+          facilities: currentConfiguration.facilities.map((item) => {
+            if (item.id !== facilityId) return item;
+            if (!enabled) return { ...item, levels: item.levels.filter((level) => level.order !== 0) };
+            const firstLevel = item.levels.find((level) => level.order === 1);
+            return {
+              ...item,
+              levels: [createRackTopLevel(item.id, firstLevel?.slotCount), ...item.levels],
+            };
+          }),
+        }),
+        true,
+      );
+    },
+    [activeWorkbookSessionRef, commitStorageConfiguration, products],
+  );
+
   return {
     moveStorageFacility,
     addStorageFacility,
@@ -300,5 +340,6 @@ export function useStorageConfigurationCommands(
     resetStorageConfiguration,
     setStorageFacilityLevelCount,
     setStorageLevelSlotCount,
+    setStorageFacilityRackTopEnabled,
   };
 }

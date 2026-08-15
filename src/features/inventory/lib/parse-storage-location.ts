@@ -49,7 +49,7 @@ function matchLegacyFacilityAndLevel(
     const expectedPrefix = `${facility.label}-`;
     if (!locationText.startsWith(expectedPrefix)) continue;
     const levelText = locationText.slice(expectedPrefix.length);
-    if (/^[1-9]\d*$/.test(levelText)) {
+    if (/^[1-9]\d*$/.test(levelText) || (facility.type === 'rack' && levelText === '0')) {
       return { facility, levelNumber: Number(levelText) };
     }
   }
@@ -60,6 +60,7 @@ function parseLevelNumber(
   levelText: string,
   facility: StorageFacility,
 ): number | null | undefined {
+  if (facility.type === 'rack' && (levelText === '꼭대기' || levelText === '칸0')) return 0;
   if (levelText === '맨 위' || levelText === '맨 위 칸' || levelText === '위') return 1;
   if (levelText === '맨 아래' || levelText === '맨 아래 칸' || levelText === '아래') {
     return facility.levels.length || 1;
@@ -96,22 +97,20 @@ function validatePlacementRange(
   rawText: string,
 ): StorageLocationIssue[] {
   const issues: StorageLocationIssue[] = [];
-  if (
-    placement.levelNumber !== null &&
-    facility.levels.length > 0 &&
-    placement.levelNumber > facility.levels.length
-  ) {
+  const level = placement.levelNumber === null
+    ? null
+    : facility.levels.find((candidate) => candidate.order === placement.levelNumber) ?? null;
+  if (placement.levelNumber !== null && !level) {
     issues.push(
       createLocationIssue(
         'level-out-of-range',
         rawText,
-        `${facility.label}은 현재 ${facility.levels.length}칸으로 설정되어 있습니다. 칸 수를 확인해주세요.`,
+        `${facility.label}에 ${placement.levelNumber}번 칸이 없습니다. 칸 수를 확인해주세요.`,
       ),
     );
   }
 
   if (placement.levelNumber !== null && placement.slotEnd !== null) {
-    const level = facility.levels[placement.levelNumber - 1];
     if (level && placement.slotEnd > level.slotCount) {
       issues.push(
         createLocationIssue(

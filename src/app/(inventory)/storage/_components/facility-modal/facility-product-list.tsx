@@ -9,6 +9,7 @@ import type { Product } from '@/features/inventory/model/product';
 import type { StorageFacility } from '@/features/inventory/model/storage';
 
 import {
+  createProductCardDragItem,
   FACILITY_PLACEMENT_DRAG_TYPE,
   serializeFacilityPlacementDragItem,
   type FacilityPlacementDragItem,
@@ -110,7 +111,7 @@ export function FacilityProductList({ facility, products, focusedProductId, isDr
               const placements = product.placements.filter((placement) => placement.facilityId === facility.id);
               const status = statusByProductId.get(product.id) ?? null;
               const isNewPlacement = status === null;
-              const cardDragItem = { productId: product.id, placementId: null };
+              const cardDragItem = createProductCardDragItem(product, facility);
               return (
                 <li
                   key={product.id}

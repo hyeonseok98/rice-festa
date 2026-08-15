@@ -2,7 +2,7 @@ import type { StorageFacility, StorageLevel } from '../model/storage';
 import type { StoragePlacement } from '../model/storage-placement';
 
 function describeVerticalPosition(level: StorageLevel, levelCount: number): string {
-  if (level.kind === 'top') return '테이블 위';
+  if (level.kind === 'top') return level.order === 0 ? '꼭대기 (0번)' : '테이블 위';
   if (level.kind === 'bottom') return '테이블 아래';
   if (level.order === 1) return '맨 위 칸';
   if (level.order === levelCount) return '맨 아래 칸';

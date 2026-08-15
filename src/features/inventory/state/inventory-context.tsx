@@ -33,6 +33,7 @@ interface InventoryContextValue extends InventoryState {
     levelId: string,
     slotCount: number,
   ) => Promise<void>;
+  setStorageFacilityRackTopEnabled: (facilityId: string, enabled: boolean) => Promise<void>;
   saveBackupBeforeEditing: () => Promise<void>;
   continueEditingWithoutBackup: () => void;
   cancelPendingEdit: () => void;

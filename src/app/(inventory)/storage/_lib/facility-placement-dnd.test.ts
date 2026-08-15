@@ -5,6 +5,7 @@ import type { StorageFacility } from '@/features/inventory/model/storage';
 
 import {
   buildDroppedPlacementMutation,
+  createProductCardDragItem,
   parseFacilityPlacementDragItem,
   serializeFacilityPlacementDragItem,
 } from './facility-placement-dnd';
@@ -72,6 +73,51 @@ describe('facility placement drag and drop', () => {
       slotEnd: 5,
       isBehind: false,
       purpose: null,
+    });
+  });
+
+  it('제품 카드 드래그는 기존 배치전 위치를 이동 대상으로 사용한다', () => {
+    const product = createProduct();
+    product.placements = [{
+      ...product.placements[0],
+      levelNumber: null,
+      slotStart: null,
+      slotEnd: null,
+    }];
+
+    expect(createProductCardDragItem(product, facility)).toEqual({
+      productId: product.id,
+      placementId: 'placement-1',
+    });
+  });
+
+  it('배치전 위치가 없는 제품 카드 드래그는 새 위치를 추가한다', () => {
+    const product = createProduct();
+
+    expect(createProductCardDragItem(product, facility)).toEqual({
+      productId: product.id,
+      placementId: null,
+    });
+  });
+
+  it('8번 이후 자리에도 드롭 위치를 그대로 저장한다', () => {
+    const rack = {
+      ...facility,
+      id: 'RACK_04',
+      type: 'rack' as const,
+      label: '렉-4',
+      levels: [{ id: 'rack-level-1', order: 1, kind: 'shelf' as const, slotCount: 19 }],
+    };
+    const product = { ...createProduct(), placements: [] };
+
+    expect(buildDroppedPlacementMutation(
+      rack,
+      product,
+      { productId: product.id, placementId: null },
+      { levelNumber: 1, slotNumber: 8, isBehind: false },
+    )).toMatchObject({
+      slotStart: 8,
+      slotEnd: 8,
     });
   });
 

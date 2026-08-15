@@ -13,7 +13,7 @@ import { StorageLayoutEditor } from '../storage-layout-editor';
 import { StorageMap } from '../storage-map';
 
 export function StorageLayoutEditorModal({ onClose }: { onClose: () => void }) {
-  const { products, setStorageFacilityLevelCount, setStorageLevelSlotCount } = useInventorySession();
+  const { products, setStorageFacilityLevelCount, setStorageLevelSlotCount, setStorageFacilityRackTopEnabled } = useInventorySession();
   const { units, moveUnit, addUnit, updateUnitLabel, removeUnit, resetLayout } = useStorageLayout();
   const [selectedFacilityId, setSelectedFacilityId] = useState<string | null>(null);
   const selectedFacility = units.find((facility) => facility.id === selectedFacilityId) ?? null;
@@ -31,7 +31,7 @@ export function StorageLayoutEditorModal({ onClose }: { onClose: () => void }) {
         <div className="min-h-0 bg-[#f4f6f8] p-4"><StorageMap units={units} products={products} isEditing highlightedLocations={new Set()} hasSearchQuery={false} onSelectUnit={setSelectedFacilityId} onMoveUnit={moveUnit} /></div>
         <aside className="min-h-0 overflow-y-auto border-l border-border p-5">
           <StorageLayoutEditor key={selectedFacility?.id ?? 'none'} selectedUnit={selectedFacility} storedProductCount={storedProductCount} onAddUnit={(type) => void addFacility(type)} onRenameUnit={updateUnitLabel} onRemoveUnit={(id) => void removeUnit(id).then(() => setSelectedFacilityId(null))} onResetLayout={() => void resetLayout().then(() => setSelectedFacilityId(null))} />
-          <div className="mt-6 border-t border-border pt-6"><StorageFacilitySettings facility={selectedFacility} onSetLevelCount={setStorageFacilityLevelCount} onSetSlotCount={setStorageLevelSlotCount} /></div>
+          <div className="mt-6 border-t border-border pt-6"><StorageFacilitySettings facility={selectedFacility} onSetLevelCount={setStorageFacilityLevelCount} onSetSlotCount={setStorageLevelSlotCount} onSetRackTopEnabled={setStorageFacilityRackTopEnabled} /></div>
         </aside>
       </div>
     </ModalPortal>
